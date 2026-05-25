@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Автоматизация ВОЛС - Расчет ТЭО и Схемы</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+          crossorigin=""/>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Верхняя панель */
+        .top-panel {
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .top-panel h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .project-name-input {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 300px;
+        }
+
+        .notes-input {
+            padding: 8px 12px;
+            border: 2px solid #e74c3c;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 400px;
+            color: #e74c3c;
+            font-weight: bold;
+            background: #fff;
+        }
+
+        .notes-input::placeholder {
+            color: #e74c3c;
+            opacity: 0.7;
+        }
+
+        /* Основная область */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Левая панель */
+        .left-panel {
+            width: 280px;
+            background: #34495e;
+            color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .panel-section {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .panel-section h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #ecf0f1;
+        }
+
+        .cable-option {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin: 8px 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .cable-option:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .cable-option.active {
+            background: rgba(255,255,255,0.3);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .cable-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid white;
+        }
+
+        .cable-4 { background: #3498db; }
+        .cable-8 { background: #2ecc71; }
+        .cable-16 { background: #9b59b6; }
+        .cable-48 { background: #e74c3c; }
+
+        .sort-toggle {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sort-btn {
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .sort-btn.active {
+            background: #3498db;
+        }
+
+        .sort-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* Зона загрузки */
+        .drop-zone {
+            border: 3px dashed #bdc3c7;
+            border-radius: 8px;
+            padding: 30px 20px;
+            text-align: center;
+            background: rgba(255,255,255,0.05);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .drop-zone.dragover {
+            border-color: #3498db;
+            background: rgba(52, 152, 219, 0.2);
+        }
+
+        .drop-zone p {
+            color: #ecf0f1;
+            margin-bottom: 10px;
+        }
+
+        .drop-zone input[type="file"] {
+            display: none;
+        }
+
+        .upload-btn {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .upload-btn:hover {
+            background: #2980b9;
+        }
+
+        /* Центральная зона с картой */
+        .center-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #map {
+            flex: 1;
+            width: 100%;
+        }
+
+        /* Нижний блок со структурной схемой */
+        .scheme-container {
+            height: 300px;
+            background: white;
+            border-top: 3px solid #2c3e50;
+            padding: 20px;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
+        .scheme-container h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        #scheme-canvas {
+            border: 1px solid #ddd;
+            background: white;
+        }
+
+        /* Статистика */
+        .stats-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            min-width: 250px;
+        }
+
+        .stats-panel h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        /* Кнопки экспорта */
+        .export-buttons {
+            position: absolute;
+            bottom: 320px;
+            right: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .export-btn {
+            background: #27ae60;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+        }
+
+        .export-btn:hover {
+            background: #219a52;
+            transform: translateY(-2px);
+        }
+
+        .clear-btn {
+            background: #e74c3c;
+        }
+
+        .clear-btn:hover {
+            background: #c0392b;
+        }
+
+        /* Маркеры на карте */
+        .custom-marker {
+            background: white;
+            border: 3px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .building-marker {
+            background: #f39c12;
+            border: 3px solid #d35400;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .marker-label {
+            background: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .distance-label {
+            background: rgba(52, 152, 219, 0.9);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        /* Список точек */
+        .points-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.2);
+            border-radius: 6px;
+            padding: 10px;
+        }
+
+        .point-item {
+            padding: 5px;
+            font-size: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .point-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .top-panel {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .project-name-input,
+            .notes-input {
+                width: 100%;
+            }
+
+            .left-panel {
+                width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Верхняя панель -->
+    <div class="top-panel">
+        <h1>📡 Автоматизация ВОЛС</h1>
+        <input type="text" 
+               id="projectName" 
+               class="project-name-input" 
+               placeholder="Название проекта..."
+               value="Проект ВОЛС">
+        <input type="text" 
+               id="specialNotes" 
+               class="notes-input" 
+               placeholder="Особые отметки (например: ВАРИТЬ С ПРОСВЕТКОЙ)">
+    </div>
+
+    <!-- Основной контейнер -->
+    <div class="main-container">
+        <!-- Левая панель -->
+        <div class="left-panel">
+            <!-- Выбор емкости кабеля -->
+            <div class="panel-section">
+                <h3>📊 Емкость кабеля</h3>
+                <div class="cable-option active" data-capacity="4">
+                    <div class="cable-color cable-4"></div>
+                    <span>4 волокна</span>
+                </div>
+                <div class="cable-option" data-capacity="8">
+                    <div class="cable-color cable-8"></div>
+                    <span>8 волокон</span>
+                </div>
+                <div class="cable-option" data-capacity="16">
+                    <div class="cable-color cable-16"></div>
+                    <span>16 волокон</span>
+                </div>
+                <div class="cable-option" data-capacity="48">
+                    <div class="cable-color cable-48"></div>
+                    <span>48 волокон</span>
+                </div>
+            </div>
+
+            <!-- Режим сортировки -->
+            <div class="panel-section">
+                <h3>🔀 Сортировка точек</h3>
+                <div class="sort-toggle">
+                    <button class="sort-btn active" data-sort="time">
+                        ⏰ По времени съемки
+                    </button>
+                    <button class="sort-btn" data-sort="distance">
+                        📏 По минимальному расстоянию
+                    </button>
+                </div>
+            </div>
+
+            <!-- Загрузка фото -->
+            <div class="panel-section">
+                <h3>📷 Загрузка фото</h3>
+                <div class="drop-zone" id="dropZone">
+                    <p>Перетащите фото опор/муфт<br>или кликните для выбора</p>
+                    <input type="file" id="fileInput" multiple accept="image/*">
+                    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                        Выбрать файлы
+                    </button>
+                </div>
+            </div>
+
+            <!-- Список точек -->
+            <div class="panel-section">
+                <h3>📍 Точки на трассе (<span id="pointsCount">0</span>)</h3>
+                <div class="points-list" id="pointsList"></div>
+            </div>
+        </div>
+
+        <!-- Центральная область -->
+        <div class="center-area">
+            <div id="map"></div>
+            
+            <!-- Панель статистики -->
+            <div class="stats-panel">
+                <h4>📈 Сводка по проекту</h4>
+                <div class="stat-item">
+                    <span class="stat-label">Общая длина трассы:</span>
+                    <span class="stat-value" id="totalLength">0 м</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">С запасом 10%:</span>
+                    <span class="stat-value" id="totalWithReserve">0 м</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Количество опор:</span>
+                    <span class="stat-value" id="polesCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Средний пролет:</span>
+                    <span class="stat-value" id="avgSpan">0 м</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Кабель:</span>
+                    <span class="stat-value" id="cableType">4 волокна</span>
+                </div>
+            </div>
+
+            <!-- Кнопки экспорта -->
+            <div class="export-buttons">
+                <button class="export-btn" id="exportBtn">
+                    💾 Скачать исполнительную схему
+                </button>
+                <button class="export-btn clear-btn" id="clearBtn">
+                    🗑️ Очистить всё
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Нижний блок со структурной схемой -->
+    <div class="scheme-container">
+        <h3>📋 Линейно-структурная схема</h3>
+        <canvas id="scheme-canvas"></canvas>
+    </div>
+
+    <!-- Библиотеки -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+            crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+    <script>
+        // ============================================
+        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ============================================
+        let map;
+        let markers = [];
+        let polylines = [];
+        let distanceLabels = [];
+        let points = [];
+        let selectedCapacity = 4;
+        let sortMode = 'time';
+        
+        const CABLE_COLORS = {
+            4: '#3498db',
+            8: '#2ecc71',
+            16: '#9b59b6',
+            48: '#e74c3c'
+        };
+
+        const CABLE_NAMES = {
+            4: '4 волокна',
+            8: '8 волокон',
+            16: '16 волокон',
+            48: '48 волокон'
+        };
+
+        // ============================================
+        // ИНИЦИАЛИЗАЦИЯ КАРТЫ
+        // ============================================
+        function initMap() {
+            // Создаем карту с центром в России (можно изменить)
+            map = L.map('map').setView([55.7558, 37.6173], 10);
+
+            // Добавляем тайлы OpenStreetMap
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Настраиваем кастомные иконки
+            setupCustomIcons();
+        }
+
+        // Кастомные иконки для маркеров
+        function setupCustomIcons() {
+            window.customPointIcon = L.divIcon({
+                className: 'custom-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+
+            window.customBuildingIcon = L.divIcon({
+                className: 'building-marker',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+        }
+
+        // ============================================
+        // ОБРАБОТКА EXIF ДАННЫХ
+        // ============================================
+        function extractEXIF(file) {
+            return new Promise((resolve, reject) => {
+                EXIF.getData(file, function() {
+                    const exifData = {
+                        latitude: null,
+                        longitude: null,
+                        dateTime: null,
+                        fileName: file.name.replace(/\.[^/.]+$/, "")
+                    };
+
+                    // Получаем GPS координаты
+                    const lat = EXIF.getTag(this, "GPSLatitude");
+                    const lon = EXIF.getTag(this, "GPSLongitude");
+                    const latRef = EXIF.getTag(this, "GPSLatitudeRef");
+                    const lonRef = EXIF.getTag(this, "GPSLongitudeRef");
+
+                    if (lat && lon) {
+                        exifData.latitude = convertGPSToDecimal(lat, latRef || 'N');
+                        exifData.longitude = convertGPSToDecimal(lon, lonRef || 'E');
+                    }
+
+                    // Получаем дату съемки
+                    const dateTime = EXIF.getTag(this, "DateTimeOriginal");
+                    if (dateTime) {
+                        exifData.dateTime = parseEXIFDate(dateTime);
+                    } else {
+                        // Если нет DateTimeOriginal, используем дату файла
+                        exifData.dateTime = file.lastModified ? new Date(file.lastModified) : new Date();
+                    }
+
+                    resolve(exifData);
+                });
+            });
+        }
+
+        // Конвертация GPS из формата EXIF в десятичный
+        function convertGPSToDecimal(coord, ref) {
+            if (!coord || coord.length < 3) return null;
+            
+            let decimal = coord[0] + coord[1] / 60 + coord[2] / 3600;
+            
+            if (ref === 'S' || ref === 'W') {
+                decimal = -decimal;
+            }
+            
+            return decimal;
+        }
+
+        // Парсинг даты из EXIF
+        function parseEXIFDate(dateString) {
+            // Формат EXIF: "YYYY:MM:DD HH:MM:SS"
+            const parts = dateString.split(' ');
+            const dateParts = parts[0].split(':');
+            const timeParts = parts[1] ? parts[1].split(':') : ['00', '00', '00'];
+            
+            return new Date(
+                parseInt(dateParts[0]),
+                parseInt(dateParts[1]) - 1,
+                parseInt(dateParts[2]),
+                parseInt(timeParts[0]),
+                parseInt(timeParts[1]),
+                parseInt(timeParts[2])
+            );
+        }
+
+        // ============================================
+        // ОБРАБОТКА ЗАГРУЖЕННЫХ ФОТО
+        // ============================================
+        async function handleFiles(files) {
+            const fileArray = Array.from(files);
+            
+            for (const file of fileArray) {
+                if (!file.type.startsWith('image/')) continue;
+                
+                try {
+                    const exifData = await extractEXIF(file);
+                    
+                    if (exifData.latitude && exifData.longitude) {
+                        addPoint(exifData);
+                    } else {
+                        console.warn(`Нет GPS данных в файле: ${file.name}`);
+                    }
+                } catch (error) {
+                    console.error(`Ошибка обработки файла ${file.name}:`, error);
+                }
+            }
+            
+            updateMap();
+            updateScheme();
+            updateStats();
+        }
+
+        // ============================================
+        // ДОБАВЛЕНИЕ ТОЧКИ
+        // ============================================
+        function addPoint(data) {
+            const point = {
+                id: Date.now() + Math.random(),
+                latitude: data.latitude,
+                longitude: data.longitude,
+                dateTime: data.dateTime,
+                name: data.fileName,
+                isBuilding: data.fileName.includes('УС') || data.fileName.includes('Клиент')
+            };
+            
+            points.push(point);
+            updatePointsList();
+        }
+
+        // ============================================
+        // СОРТИРОВКА ТОЧЕК
+        // ============================================
+        function sortPoints() {
+            if (sortMode === 'time') {
+                // Сортировка по времени
+                points.sort((a, b) => a.dateTime - b.dateTime);
+            } else {
+                // Сортировка по ближайшему соседу
+                sortByNearestNeighbor();
+            }
+        }
+
+        // Алгоритм ближайшего соседа
+        function sortByNearestNeighbor() {
+            if (points.length <= 1) return;
+            
+            const sorted = [points[0]];
+            const remaining = points.slice(1);
+            
+            while (remaining.length > 0) {
+                const lastPoint = sorted[sorted.length - 1];
+                let nearestIndex = 0;
+                let nearestDistance = Infinity;
+                
+                for (let i = 0; i < remaining.length; i++) {
+                    const distance = calculateDistance(
+                        lastPoint.latitude, lastPoint.longitude,
+                        remaining[i].latitude, remaining[i].longitude
+                    );
+                    
+                    // Лимит 150м между опорами
+                    if (distance < nearestDistance && distance <= 150) {
+                        nearestDistance = distance;
+                        nearestIndex = i;
+                    }
+                }
+                
+                // Если не нашли в пределах 150м, берем ближайший без ограничений
+                if (nearestDistance === Infinity) {
+                    for (let i = 0; i < remaining.length; i++) {
+                        const distance = calculateDistance(
+                            lastPoint.latitude, lastPoint.longitude,
+                            remaining[i].latitude, remaining[i].longitude
+                        );
+                        
+                        if (distance < nearestDistance) {
+                            nearestDistance = distance;
+                            nearestIndex = i;
+                        }
+                    }
+                }
+                
+                sorted.push(remaining[nearestIndex]);
+                remaining.splice(nearestIndex, 1);
+            }
+            
+            points = sorted;
+        }
+
+        // ============================================
+        // ФОРМУЛА ГАВЕРСИНУСОВ
+        // ============================================
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // Радиус Земли в метрах
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function toRad(deg) {
+            return deg * Math.PI / 180;
+        }
+
+        // ============================================
+        // ОТРИСОВКА НА КАРТЕ
+        // ============================================
+        function updateMap() {
+            // Очищаем карту
+            markers.forEach(m => map.removeLayer(m));
+            polylines.forEach(p => map.removeLayer(p));
+            distanceLabels.forEach(l => map.removeLayer(l));
+            
+            markers = [];
+            polylines = [];
+            distanceLabels = [];
+            
+            if (points.length === 0) return;
+            
+            // Сортируем точки
+            sortPoints();
+            
+            // Добавляем маркеры
+            points.forEach(point => {
+                const icon = point.isBuilding ? window.customBuildingIcon : window.customPointIcon;
+                
+                const marker = L.marker([point.latitude, point.longitude], { icon: icon })
+                    .addTo(map)
+                    .bindPopup(`<div class="marker-label">${point.name}</div>`);
+                
+                markers.push(marker);
+                
+                // Добавляем постоянную подпись
+                const label = L.marker([point.latitude, point.longitude], {
+                    icon: L.divIcon({
+                        className: 'marker-label',
+                        html: point.name,
+                        iconSize: [point.name.length * 8 + 10, 25],
+                        iconAnchor: [point.name.length * 4 + 5, -25]
+                    })
+                }).addTo(map);
+                
+                markers.push(label);
+            });
+            
+            // Рисуем линии между точками
+            for (let i = 0; i < points.length - 1; i++) {
+                const p1 = points[i];
+                const p2 = points[i + 1];
+                
+                // Полилиния
+                const polyline = L.polyline([[p1.latitude, p1.longitude], [p2.latitude, p2.longitude]], {
+                    color: CABLE_COLORS[selectedCapacity],
+                    weight: 4,
+                    opacity: 0.8
+                }).addTo(map);
+                
+                polylines.push(polyline);
+                
+                // Расчет расстояния
+                const distance = calculateDistance(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+                
+                // Средняя точка для подписи
+                const midLat = (p1.latitude + p2.latitude) / 2;
+                const midLon = (p1.longitude + p2.longitude) / 2;
+                
+                // Подпись расстояния
+                const label = L.marker([midLat, midLon], {
+                    icon: L.divIcon({
+                        className: 'distance-label',
+                        html: `Lфиз = ${distance.toFixed(1)} м`,
+                        iconSize: [120, 25],
+                        iconAnchor: [60, 12]
+                    })
+                }).addTo(map);
+                
+                distanceLabels.push(label);
+            }
+            
+            // Центрируем карту на всех точках
+            if (markers.length > 0) {
+                const group = new L.featureGroup(markers.filter(m => m instanceof L.Marker && !m.options.icon.options.className?.includes('label')));
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        // ============================================
+        // ОТРИСОВКА СТРУКТУРНОЙ СХЕМЫ
+        // ============================================
+        function updateScheme() {
+            const canvas = document.getElementById('scheme-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            if (points.length === 0) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                return;
+            }
+            
+            // Настраиваем размер canvas
+            const blockWidth = 120;
+            const blockHeight = 80;
+            const spacing = 80;
+            const totalWidth = points.length * (blockWidth + spacing) + 100;
+            
+            canvas.width = Math.max(totalWidth, 800);
+            canvas.height = 250;
+            
+            // Очищаем canvas
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Рисуем блоки
+            points.forEach((point, index) => {
+                const x = 50 + index * (blockWidth + spacing);
+                const y = 80;
+                
+                // Определяем тип блока
+                const isTerminal = index === 0 || index === points.length - 1 || 
+                                  point.name.includes('КРН') || point.name.includes('КРС');
+                const isJoint = point.name.includes('ОМ') || point.name.includes('Муфта');
+                
+                if (isTerminal) {
+                    // Прямоугольник для терминальных точек
+                    ctx.fillStyle = '#3498db';
+                    ctx.fillRect(x, y, blockWidth, blockHeight);
+                    
+                    // Текст
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(point.name, x + blockWidth / 2, y + blockHeight / 2 + 5);
+                } else if (isJoint) {
+                    // Круг для муфт
+                    ctx.beginPath();
+                    ctx.arc(x + blockWidth / 2, y + blockHeight / 2, blockHeight / 2, 0, Math.PI * 2);
+                    ctx.fillStyle = '#9b59b6';
+                    ctx.fill();
+                    
+                    // Текст
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(point.name, x + blockWidth / 2, y + blockHeight / 2 + 5);
+                } else {
+                    // Обычная опора - прямоугольник со скругленными углами
+                    roundRect(ctx, x, y, blockWidth, blockHeight, 10, '#2ecc71', true);
+                    
+                    // Текст
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(point.name, x + blockWidth / 2, y + blockHeight / 2 + 5);
+                }
+                
+                // Рисуем соединительные линии и подписи
+                if (index < points.length - 1) {
+                    const nextPoint = points[index + 1];
+                    const distance = calculateDistance(
+                        point.latitude, point.longitude,
+                        nextPoint.latitude, nextPoint.longitude
+                    );
+                    
+                    // Линия
+                    ctx.beginPath();
+                    ctx.moveTo(x + blockWidth, y + blockHeight / 2);
+                    ctx.lineTo(x + blockWidth + spacing, y + blockHeight / 2);
+                    ctx.strokeStyle = CABLE_COLORS[selectedCapacity];
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    
+                    // Подпись кабеля и расстояния
+                    ctx.fillStyle = CABLE_COLORS[selectedCapacity];
+                    ctx.font = 'bold 11px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(CABLE_NAMES[selectedCapacity], x + blockWidth + spacing / 2, y + blockHeight / 2 - 15);
+                    ctx.fillText(`Lфиз = ${distance.toFixed(1)} м`, x + blockWidth + spacing / 2, y + blockHeight / 2 + 30);
+                }
+            });
+            
+            // Добавляем особые отметки
+            const specialNotes = document.getElementById('specialNotes').value;
+            if (specialNotes) {
+                ctx.fillStyle = '#e74c3c';
+                ctx.font = 'bold 18px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText(specialNotes, 50, 40);
+            }
+        }
+
+        // Вспомогательная функция для рисования скругленных прямоугольников
+        function roundRect(ctx, x, y, width, height, radius, fillStyle, fill) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            
+            if (fill) {
+                ctx.fillStyle = fillStyle;
+                ctx.fill();
+            }
+        }
+
+        // ============================================
+        // ОБНОВЛЕНИЕ СТАТИСТИКИ
+        // ============================================
+        function updateStats() {
+            let totalLength = 0;
+            
+            for (let i = 0; i < points.length - 1; i++) {
+                totalLength += calculateDistance(
+                    points[i].latitude, points[i].longitude,
+                    points[i + 1].latitude, points[i + 1].longitude
+                );
+            }
+            
+            const totalWithReserve = totalLength * 1.1;
+            const avgSpan = points.length > 1 ? totalLength / (points.length - 1) : 0;
+            
+            document.getElementById('totalLength').textContent = `${totalLength.toFixed(1)} м`;
+            document.getElementById('totalWithReserve').textContent = `${totalWithReserve.toFixed(1)} м`;
+            document.getElementById('polesCount').textContent = points.length;
+            document.getElementById('avgSpan').textContent = `${avgSpan.toFixed(1)} м`;
+            document.getElementById('cableType').textContent = CABLE_NAMES[selectedCapacity];
+        }
+
+        // ============================================
+        // ОБНОВЛЕНИЕ СПИСКА ТОЧЕК
+        // ============================================
+        function updatePointsList() {
+            const list = document.getElementById('pointsList');
+            document.getElementById('pointsCount').textContent = points.length;
+            
+            list.innerHTML = points.map((point, index) => `
+                <div class="point-item">
+                    ${index + 1}. ${point.name} (${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)})
+                </div>
+            `).join('');
+        }
+
+        // ============================================
+        // ЭКСПОРТ СХЕМЫ
+        // ============================================
+        async function exportScheme() {
+            const exportBtn = document.getElementById('exportBtn');
+            exportBtn.textContent = '⏳ Генерация...';
+            exportBtn.disabled = true;
+            
+            try {
+                // Создаем временный контейнер для экспорта
+                const exportContainer = document.createElement('div');
+                exportContainer.style.cssText = `
+                    position: fixed;
+                    top: -9999px;
+                    left: -9999px;
+                    background: white;
+                    padding: 20px;
+                    z-index: 10000;
+                `;
+                
+                // Заголовок
+                const title = document.createElement('h2');
+                title.textContent = document.getElementById('projectName').value || 'Проект ВОЛС';
+                title.style.cssText = 'color: #2c3e50; margin-bottom: 10px; font-size: 24px;';
+                exportContainer.appendChild(title);
+                
+                // Особые отметки
+                const specialNotes = document.getElementById('specialNotes').value;
+                if (specialNotes) {
+                    const notes = document.createElement('div');
+                    notes.textContent = specialNotes;
+                    notes.style.cssText = 'color: #e74c3c; font-weight: bold; font-size: 16px; margin-bottom: 15px;';
+                    exportContainer.appendChild(notes);
+                }
+                
+                // Карта (скриншот)
+                const mapDiv = document.getElementById('map');
+                const mapCanvas = await html2canvas(mapDiv, {
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff'
+                });
+                mapCanvas.style.cssText = 'border: 2px solid #2c3e50; margin-bottom: 20px;';
+                exportContainer.appendChild(mapCanvas);
+                
+                // Структурная схема
+                const schemeCanvas = document.getElementById('scheme-canvas');
+                const schemeCopy = schemeCanvas.cloneNode();
+                schemeCopy.style.cssText = 'border: 2px solid #2c3e50; margin-bottom: 20px;';
+                exportContainer.appendChild(schemeCopy);
+                
+                // Статистика
+                const statsDiv = document.createElement('div');
+                statsDiv.style.cssText = 'background: #f8f9fa; padding: 15px; border-radius: 8px;';
+                statsDiv.innerHTML = `
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">📈 Сводка по проекту</h3>
+                    <p><strong>Общая длина трассы:</strong> ${document.getElementById('totalLength').textContent}</p>
+                    <p><strong>С запасом 10%:</strong> ${document.getElementById('totalWithReserve').textContent}</p>
+                    <p><strong>Количество опор:</strong> ${document.getElementById('polesCount').textContent}</p>
+                    <p><strong>Средний пролет:</strong> ${document.getElementById('avgSpan').textContent}</p>
+                    <p><strong>Кабель:</strong> ${document.getElementById('cableType').textContent}</p>
+                `;
+                exportContainer.appendChild(statsDiv);
+                
+                document.body.appendChild(exportContainer);
+                
+                // Генерируем итоговое изображение
+                const finalCanvas = await html2canvas(exportContainer, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff'
+                });
+                
+                // Скачиваем
+                const link = document.createElement('a');
+                link.download = `ВОЛС_Схема_${new Date().toISOString().slice(0,10)}.png`;
+                link.href = finalCanvas.toDataURL('image/png');
+                link.click();
+                
+                // Удаляем временный контейнер
+                document.body.removeChild(exportContainer);
+                
+            } catch (error) {
+                console.error('Ошибка экспорта:', error);
+                alert('Ошибка при экспорте схемы. Пожалуйста, попробуйте еще раз.');
+            } finally {
+                exportBtn.textContent = '💾 Скачать исполнительную схему';
+                exportBtn.disabled = false;
+            }
+        }
+
+        // ============================================
+        // ОЧИСТКА ВСЕХ ДАННЫХ
+        // ============================================
+        function clearAll() {
+            if (!confirm('Вы уверены, что хотите очистить все данные?')) return;
+            
+            points = [];
+            markers.forEach(m => map.removeLayer(m));
+            polylines.forEach(p => map.removeLayer(p));
+            distanceLabels.forEach(l => map.removeLayer(l));
+            
+            markers = [];
+            polylines = [];
+            distanceLabels = [];
+            
+            updateMap();
+            updateScheme();
+            updateStats();
+            updatePointsList();
+        }
+
+        // ============================================
+        // ОБРАБОТЧИКИ СОБЫТИЙ
+        // ============================================
+        document.addEventListener('DOMContentLoaded', () => {
+            // Инициализация карты
+            initMap();
+            
+            // Обработка Drag-and-Drop
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                handleFiles(e.dataTransfer.files);
+            });
+            
+            dropZone.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+                fileInput.value = ''; // Сброс для повторной загрузки тех же файлов
+            });
+            
+            // Выбор емкости кабеля
+            document.querySelectorAll('.cable-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    document.querySelectorAll('.cable-option').forEach(o => o.classList.remove('active'));
+                    option.classList.add('active');
+                    selectedCapacity = parseInt(option.dataset.capacity);
+                    updateMap();
+                    updateScheme();
+                    updateStats();
+                });
+            });
+            
+            // Переключение режима сортировки
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    sortMode = btn.dataset.sort;
+                    updateMap();
+                    updateScheme();
+                });
+            });
+            
+            // Обновление схемы при изменении особых отметок
+            document.getElementById('specialNotes').addEventListener('input', updateScheme);
+            
+            // Экспорт
+            document.getElementById('exportBtn').addEventListener('click', exportScheme);
+            
+            // Очистка
+            document.getElementById('clearBtn').addEventListener('click', clearAll);
+            
+            // Начальное обновление статистики
+            updateStats();
+        });
+    </script>
+</body>
+</html>
