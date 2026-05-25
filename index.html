@@ -10,6 +10,9 @@
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
           crossorigin=""/>
     
+    <!-- Leaflet Control Geocoder CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    
     <style>
         * {
             margin: 0;
@@ -34,6 +37,7 @@
             align-items: center;
             gap: 20px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            flex-wrap: wrap;
         }
 
         .top-panel h1 {
@@ -46,7 +50,7 @@
             border: none;
             border-radius: 4px;
             font-size: 14px;
-            width: 300px;
+            width: 250px;
         }
 
         .notes-input {
@@ -54,7 +58,7 @@
             border: 2px solid #e74c3c;
             border-radius: 4px;
             font-size: 14px;
-            width: 400px;
+            width: 350px;
             color: #e74c3c;
             font-weight: bold;
             background: #fff;
@@ -63,6 +67,36 @@
         .notes-input::placeholder {
             color: #e74c3c;
             opacity: 0.7;
+        }
+
+        /* Поиск по адресу */
+        .search-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .search-input {
+            padding: 8px 12px;
+            border: 2px solid #3498db;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 300px;
+            background: #fff;
+        }
+
+        .search-btn {
+            padding: 8px 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .search-btn:hover {
+            background: #2980b9;
         }
 
         /* Основная область */
@@ -124,10 +158,15 @@
             border: 2px solid white;
         }
 
-        .cable-4 { background: #3498db; }
-        .cable-8 { background: #2ecc71; }
-        .cable-16 { background: #9b59b6; }
-        .cable-48 { background: #e74c3c; }
+        .cable-4 { background: #00D2FF; }
+        .cable-8 { background: #00FF66; }
+        .cable-16 { background: #B800FF; }
+        .cable-24 { background: #FFD700; }
+        .cable-32 { background: #FF8C00; }
+        .cable-48 { background: #FF0000; }
+        .cable-64 { background: #FF69B4; }
+        .cable-72 { background: #00008B; }
+        .cable-96 { background: #ADFF2F; }
 
         .sort-toggle {
             display: flex;
@@ -206,7 +245,7 @@
 
         /* Нижний блок со структурной схемой */
         .scheme-container {
-            height: 300px;
+            height: 350px;
             background: white;
             border-top: 3px solid #2c3e50;
             padding: 20px;
@@ -263,7 +302,7 @@
         /* Кнопки экспорта */
         .export-buttons {
             position: absolute;
-            bottom: 320px;
+            bottom: 370px;
             right: 10px;
             z-index: 1000;
             display: flex;
@@ -386,6 +425,13 @@
                id="specialNotes" 
                class="notes-input" 
                placeholder="Особые отметки (например: ВАРИТЬ С ПРОСВЕТКОЙ)">
+        <div class="search-container">
+            <input type="text" 
+                   id="searchInput" 
+                   class="search-input" 
+                   placeholder="Адрес или координаты (56.8389, 60.6057)">
+            <button class="search-btn" id="searchBtn">🔍 Найти</button>
+        </div>
     </div>
 
     <!-- Основной контейнер -->
@@ -407,9 +453,29 @@
                     <div class="cable-color cable-16"></div>
                     <span>16 волокон</span>
                 </div>
+                <div class="cable-option" data-capacity="24">
+                    <div class="cable-color cable-24"></div>
+                    <span>24 волокна</span>
+                </div>
+                <div class="cable-option" data-capacity="32">
+                    <div class="cable-color cable-32"></div>
+                    <span>32 волокна</span>
+                </div>
                 <div class="cable-option" data-capacity="48">
                     <div class="cable-color cable-48"></div>
                     <span>48 волокон</span>
+                </div>
+                <div class="cable-option" data-capacity="64">
+                    <div class="cable-color cable-64"></div>
+                    <span>64 волокна</span>
+                </div>
+                <div class="cable-option" data-capacity="72">
+                    <div class="cable-color cable-72"></div>
+                    <span>72 волокна</span>
+                </div>
+                <div class="cable-option" data-capacity="96">
+                    <div class="cable-color cable-96"></div>
+                    <span>96 волокон</span>
                 </div>
             </div>
 
@@ -496,6 +562,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
             crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
@@ -510,19 +577,30 @@
         let points = [];
         let selectedCapacity = 4;
         let sortMode = 'time';
+        let searchMarker = null;
         
         const CABLE_COLORS = {
-            4: '#3498db',
-            8: '#2ecc71',
-            16: '#9b59b6',
-            48: '#e74c3c'
+            4: '#00D2FF',
+            8: '#00FF66',
+            16: '#B800FF',
+            24: '#FFD700',
+            32: '#FF8C00',
+            48: '#FF0000',
+            64: '#FF69B4',
+            72: '#00008B',
+            96: '#ADFF2F'
         };
 
         const CABLE_NAMES = {
             4: '4 волокна',
             8: '8 волокон',
             16: '16 волокон',
-            48: '48 волокон'
+            24: '24 волокна',
+            32: '32 волокна',
+            48: '48 волокон',
+            64: '64 волокна',
+            72: '72 волокна',
+            96: '96 волокон'
         };
 
         // ============================================
@@ -540,6 +618,87 @@
 
             // Настраиваем кастомные иконки
             setupCustomIcons();
+            
+            // Добавляем поиск по адресу
+            setupSearch();
+        }
+        
+        // Настройка поиска по адресу/координатам
+        function setupSearch() {
+            const searchBtn = document.getElementById('searchBtn');
+            const searchInput = document.getElementById('searchInput');
+            
+            searchBtn.addEventListener('click', performSearch);
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') performSearch();
+            });
+        }
+        
+        // Выполнение поиска
+        function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+            
+            // Проверяем, не координаты ли это (формат "широта, долгота")
+            const coordMatch = query.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+            
+            if (coordMatch) {
+                const lat = parseFloat(coordMatch[1]);
+                const lon = parseFloat(coordMatch[2]);
+                
+                if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+                    goToLocation(lat, lon, 'Координаты');
+                    return;
+                }
+            }
+            
+            // Поиск адреса через Nominatim API
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        const result = data[0];
+                        goToLocation(parseFloat(result.lat), parseFloat(result.lon), result.display_name);
+                    } else {
+                        alert('Адрес не найден. Попробуйте другой запрос.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка поиска:', error);
+                    alert('Ошибка при поиске адреса.');
+                });
+        }
+        
+        // Переход к местоположению
+        function goToLocation(lat, lon, name) {
+            // Удаляем предыдущий маркер поиска
+            if (searchMarker) {
+                map.removeLayer(searchMarker);
+            }
+            
+            // Создаем новый маркер
+            searchMarker = L.marker([lat, lon]).addTo(map)
+                .bindPopup(`<b>📍 ${name}</b><br>Стартовая метка`)
+                .openPopup();
+            
+            // Центрируем карту
+            map.setView([lat, lon], 16);
+            
+            // Добавляем как первую точку если нужно
+            if (confirm('Добавить эту точку как начало трассы?')) {
+                const fileName = prompt('Введите имя точки (например, "Опора 1" или "КРН Начало"):', 'Точка поиска');
+                if (fileName) {
+                    addPoint({
+                        latitude: lat,
+                        longitude: lon,
+                        dateTime: new Date(),
+                        fileName: fileName
+                    });
+                    updateMap();
+                    updateScheme();
+                    updateStats();
+                }
+            }
         }
 
         // Кастомные иконки для маркеров
@@ -640,16 +799,58 @@
                     if (exifData.latitude && exifData.longitude) {
                         addPoint(exifData);
                     } else {
-                        console.warn(`Нет GPS данных в файле: ${file.name}`);
+                        // Нет GPS данных - просим указать вручную
+                        console.warn(`В файле ${file.name} нет геотега.`);
+                        alert(`В файле "${file.name}" нет GPS-координат.\n\nУкажите местоположение этой точки вручную:\n1. Найдите адрес в поиске сверху\n2. Или кликните на карту для добавления точки`);
+                        
+                        // Добавляем точку без координат для последующего ручного указания
+                        const fileName = prompt(`Введите имя для точки из файла "${file.name}":`, exifData.fileName);
+                        if (fileName) {
+                            // Сохраняем для ручного добавления
+                            window.pendingPoint = {
+                                fileName: fileName,
+                                dateTime: exifData.dateTime,
+                                isBuilding: fileName.includes('УС') || fileName.includes('Клиент')
+                            };
+                            
+                            // Включаем режим клика для добавления
+                            enableClickToAddMode();
+                        }
                     }
                 } catch (error) {
                     console.error(`Ошибка обработки файла ${file.name}:`, error);
+                    alert(`Ошибка обработки файла ${file.name}: ${error.message}`);
                 }
             }
             
             updateMap();
             updateScheme();
             updateStats();
+        }
+        
+        // Режим добавления точки по клику на карту
+        let clickToAddMode = false;
+        
+        function enableClickToAddMode() {
+            if (!window.pendingPoint) return;
+            
+            clickToAddMode = true;
+            map.getContainer().style.cursor = 'crosshair';
+            alert('Режим добавления точки: Кликните на карту чтобы указать местоположение');
+            
+            map.once('click', function(e) {
+                if (window.pendingPoint) {
+                    window.pendingPoint.latitude = e.latlng.lat;
+                    window.pendingPoint.longitude = e.latlng.lng;
+                    addPoint(window.pendingPoint);
+                    window.pendingPoint = null;
+                    clickToAddMode = false;
+                    map.getContainer().style.cursor = '';
+                    updateMap();
+                    updateScheme();
+                    updateStats();
+                }
+            });
         }
 
         // ============================================
@@ -767,23 +968,48 @@
             // Сортируем точки
             sortPoints();
             
-            // Добавляем маркеры
-            points.forEach(point => {
+            // Добавляем маркеры с попапами для комментариев
+            points.forEach((point, index) => {
                 const icon = point.isBuilding ? window.customBuildingIcon : window.customPointIcon;
+                
+                // Определяем тип точки для флага
+                const isFirst = index === 0;
+                const isLast = index === points.length - 1;
+                let popupContent = `<div class="marker-label"><strong>${point.name}</strong></div>`;
+                
+                if (isFirst) {
+                    popupContent += `<div style="color: green; font-weight: bold; margin-top: 5px;">🚩 Начало трассы (А)</div>`;
+                } else if (isLast) {
+                    popupContent += `<div style="color: red; font-weight: bold; margin-top: 5px;">🏁 Конец трассы (Я)</div>`;
+                }
+                
+                // Добавляем поле для комментария
+                popupContent += `
+                    <div style="margin-top: 10px;">
+                        <label style="font-size: 11px; display: block; margin-bottom: 3px;">Комментарий:</label>
+                        <textarea id="comment-${point.id}" style="width: 200px; height: 60px; font-size: 12px;" 
+                                  placeholder="Введите комментарий...">${point.comment || ''}</textarea>
+                        <button onclick="savePointComment(${point.id})" style="margin-top: 5px; padding: 5px 10px; background: #3498db; color: white; border: none; border-radius: 3px; cursor: pointer;">Сохранить</button>
+                    </div>
+                `;
                 
                 const marker = L.marker([point.latitude, point.longitude], { icon: icon })
                     .addTo(map)
-                    .bindPopup(`<div class="marker-label">${point.name}</div>`);
+                    .bindPopup(popupContent);
                 
                 markers.push(marker);
                 
-                // Добавляем постоянную подпись
+                // Добавляем постоянную подпись с именем
+                let labelText = point.name;
+                if (isFirst) labelText = '🚩 А: ' + point.name;
+                if (isLast) labelText = '🏁 Я: ' + point.name;
+                
                 const label = L.marker([point.latitude, point.longitude], {
                     icon: L.divIcon({
                         className: 'marker-label',
-                        html: point.name,
-                        iconSize: [point.name.length * 8 + 10, 25],
-                        iconAnchor: [point.name.length * 4 + 5, -25]
+                        html: labelText,
+                        iconSize: [labelText.length * 8 + 10, 25],
+                        iconAnchor: [labelText.length * 4 + 5, -25]
                     })
                 }).addTo(map);
                 
@@ -830,6 +1056,19 @@
                 map.fitBounds(group.getBounds().pad(0.1));
             }
         }
+        
+        // Сохранение комментария для точки
+        window.savePointComment = function(pointId) {
+            const commentEl = document.getElementById(`comment-${pointId}`);
+            if (commentEl) {
+                const point = points.find(p => p.id === pointId);
+                if (point) {
+                    point.comment = commentEl.value;
+                    alert('Комментарий сохранен!');
+                    updateScheme(); // Обновляем схему с новым комментарием
+                }
+            }
+        };
 
         // ============================================
         // ОТРИСОВКА СТРУКТУРНОЙ СХЕМЫ
@@ -850,20 +1089,30 @@
             const totalWidth = points.length * (blockWidth + spacing) + 100;
             
             canvas.width = Math.max(totalWidth, 800);
-            canvas.height = 250;
+            canvas.height = 300; // Увеличили высоту для особых отметок
             
             // Очищаем canvas
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
+            // Сначала рисуем особые отметки (красный текст поверх всего)
+            const specialNotes = document.getElementById('specialNotes').value;
+            if (specialNotes) {
+                ctx.fillStyle = '#e74c3c';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(specialNotes, canvas.width / 2, 35);
+            }
+            
             // Рисуем блоки
             points.forEach((point, index) => {
                 const x = 50 + index * (blockWidth + spacing);
-                const y = 80;
+                const y = 100; // Сдвинули вниз из-за особых отметок
                 
-                // Определяем тип блока
+                // Определяем тип блока - также учитываем УС
                 const isTerminal = index === 0 || index === points.length - 1 || 
-                                  point.name.includes('КРН') || point.name.includes('КРС');
+                                  point.name.includes('КРН') || point.name.includes('КРС') ||
+                                  point.name.includes('УС');
                 const isJoint = point.name.includes('ОМ') || point.name.includes('Муфта');
                 
                 if (isTerminal) {
@@ -871,11 +1120,22 @@
                     ctx.fillStyle = '#3498db';
                     ctx.fillRect(x, y, blockWidth, blockHeight);
                     
-                    // Текст
+                    // Текст имени
                     ctx.fillStyle = 'white';
-                    ctx.font = 'bold 14px Arial';
+                    ctx.font = 'bold 13px Arial';
                     ctx.textAlign = 'center';
                     ctx.fillText(point.name, x + blockWidth / 2, y + blockHeight / 2 + 5);
+                    
+                    // Флаги начала/конца
+                    if (index === 0) {
+                        ctx.fillStyle = '#2ecc71';
+                        ctx.font = 'bold 11px Arial';
+                        ctx.fillText('🚩 НАЧАЛО (А)', x + blockWidth / 2, y - 10);
+                    } else if (index === points.length - 1) {
+                        ctx.fillStyle = '#e74c3c';
+                        ctx.font = 'bold 11px Arial';
+                        ctx.fillText('🏁 КОНЕЦ (Я)', x + blockWidth / 2, y - 10);
+                    }
                 } else if (isJoint) {
                     // Круг для муфт
                     ctx.beginPath();
@@ -921,17 +1181,15 @@
                     ctx.textAlign = 'center';
                     ctx.fillText(CABLE_NAMES[selectedCapacity], x + blockWidth + spacing / 2, y + blockHeight / 2 - 15);
                     ctx.fillText(`Lфиз = ${distance.toFixed(1)} м`, x + blockWidth + spacing / 2, y + blockHeight / 2 + 30);
+                    
+                    // Комментарий точки если есть
+                    if (nextPoint.comment) {
+                        ctx.fillStyle = '#7f8c8d';
+                        ctx.font = 'italic 10px Arial';
+                        ctx.fillText(nextPoint.comment, x + blockWidth + spacing / 2, y + blockHeight / 2 + 50);
+                    }
                 }
             });
-            
-            // Добавляем особые отметки
-            const specialNotes = document.getElementById('specialNotes').value;
-            if (specialNotes) {
-                ctx.fillStyle = '#e74c3c';
-                ctx.font = 'bold 18px Arial';
-                ctx.textAlign = 'left';
-                ctx.fillText(specialNotes, 50, 40);
-            }
         }
 
         // Вспомогательная функция для рисования скругленных прямоугольников
