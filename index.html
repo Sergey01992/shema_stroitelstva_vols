@@ -1,1437 +1,1145 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Автоматизация ВОЛС - Расчет ТЭО и Схемы</title>
-    
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
-          crossorigin=""/>
-    
-    <!-- Leaflet Control Geocoder CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ВОЛС · Предпроектное обследование · SPA 2026.3</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.css">
+<style>
+:root{
+  --bg:#0e1220; --panel:#161a2e; --panel2:#1d2340; --line:#2a3055;
+  --text:#e8ecff; --muted:#9aa3c7; --accent:#4ea1ff; --red:#ff3b3b; --ok:#39d98a;
+  --z-map:1; --z-panel:800; --z-sidebar:900; --z-header:1000; --z-toast:2000; --z-modal:9999;
+  --sidebar-w:360px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;overflow:hidden}
+a{color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+header{flex:0 0 54px;display:flex;align-items:center;gap:10px;padding:6px 12px;background:var(--panel);border-bottom:1px solid var(--line);z-index:var(--z-header)}
+header h1{font-size:14px;margin:0 8px 0 4px;white-space:nowrap;color:var(--muted)}
+.header-actions{display:flex;gap:4px;margin-left:8px}
+.header-actions button{background:#2a3055;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 8px;cursor:pointer;font-size:16px;line-height:1}
+.header-actions button:hover{background:#3a4478}
+.header-actions button:disabled{opacity:0.3;cursor:not-allowed}
+header .search{flex:0 1 260px}
+header .notes{flex:1 1 auto}
+header input,header textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:5px 8px;outline:none;font-size:13px}
+header textarea{min-height:32px;resize:vertical;color:#ff3b3b;font-size:14px;font-weight:700;line-height:1.1}
 
-        /* Верхняя панель */
-        .top-panel {
-            background: #2c3e50;
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            flex-wrap: wrap;
-        }
+#workspace{flex:1;position:relative;overflow:hidden;display:flex}
+aside{width:var(--sidebar-w);min-width:320px;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;z-index:var(--z-sidebar);display:flex;flex-direction:column;padding:8px}
+aside h3{margin:0;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
 
-        .top-panel h1 {
-            font-size: 24px;
-            font-weight: 600;
-        }
+.accordion{margin-bottom:6px}
+.accordion-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+  cursor:pointer;font-size:12px;font-weight:600;color:var(--accent);user-select:none;
+}
+.accordion-header:hover{background:#232a4d}
+.accordion-header .icon{transition:transform 0.2s;font-size:10px}
+.accordion-header.collapsed .icon{transform:rotate(-90deg)}
+.accordion-content{
+  overflow:hidden;transition:max-height 0.3s ease, padding 0.3s ease, margin 0.3s ease, border 0.3s ease;
+  max-height:1000px;padding:8px 0;margin-top:4px;border-bottom:1px solid transparent;
+}
+.accordion-content.collapsed{max-height:0 !important;padding:0;margin:0;border:0}
 
-        .project-name-input {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 4px;
-            font-size: 14px;
-            width: 250px;
-        }
+.point-list-container{max-height:220px;overflow-y:auto;padding-right:4px}
+.point-list-container::-webkit-scrollbar{width:6px}
+.point-list-container::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 
-        .notes-input {
-            padding: 8px 12px;
-            border: 2px solid #e74c3c;
-            border-radius: 4px;
-            font-size: 14px;
-            width: 350px;
-            color: #e74c3c;
-            font-weight: bold;
-            background: #fff;
-        }
+aside button{background:var(--accent);color:#05122a;border:0;border-radius:6px;padding:5px 10px;cursor:pointer;font-weight:600;font-size:12px}
+aside button.secondary{background:#2a3055;color:var(--text)}
+aside button.danger{background:#a93333;color:#fff}
+aside .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+aside label{font-size:12px;display:flex;gap:5px;align-items:center;padding:2px 0;cursor:pointer}
+aside input[type=text],aside input[type=number],aside select,aside textarea{background:#0f1430;border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 6px;outline:none;font-size:12px}
+aside textarea{width:100%;min-height:36px}
+aside select{width:100%}
 
-        .notes-input::placeholder {
-            color: #e74c3c;
-            opacity: 0.7;
-        }
+#mapContainer{flex:1;position:relative;background:#0b0f1f;z-index:var(--z-map)}
+#map{width:100%;height:100%}
 
-        /* Поиск по адресу */
-        .search-container {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
+.basemap-switcher{
+  position:absolute;top:10px;right:10px;z-index:500;
+  background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:8px;display:flex;flex-direction:column;gap:8px;
+  box-shadow:0 2px 8px #0008;max-height:85vh;overflow-y:auto;min-width:160px;
+}
+.basemap-switcher::-webkit-scrollbar{width:4px}
+.basemap-switcher::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
 
-        .search-input {
-            padding: 8px 12px;
-            border: 2px solid #3498db;
-            border-radius: 4px;
-            font-size: 14px;
-            width: 300px;
-            background: #fff;
-        }
+.basemap-group{display:flex;flex-direction:column;gap:2px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.basemap-group:last-child{border-bottom:0;padding-bottom:0}
+.basemap-group-title{
+  font-size:9px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:0.8px;padding:2px 4px;margin-bottom:2px;
+}
+.basemap-switcher button{
+  background:transparent;border:1px solid transparent;color:var(--text);
+  font-size:11px;padding:4px 8px;cursor:pointer;border-radius:4px;
+  text-align:left;display:flex;align-items:center;gap:6px;
+}
+.basemap-switcher button:hover{background:#2a3055}
+.basemap-switcher button.active{background:var(--accent);color:#05122a;font-weight:600}
+.basemap-switcher .swatch{width:14px;height:14px;border-radius:3px;border:1px solid #0006;flex-shrink:0}
 
-        .search-btn {
-            padding: 8px 16px;
-            background: #3498db;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
+.float-panel{position:absolute;left:var(--sidebar-w);right:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px 8px 0 0;display:flex;flex-direction:column;box-shadow:0 -4px 20px #0008;z-index:var(--z-panel);transition:height 0.1s ease;min-height:36px}
+.float-panel.hidden{display:none !important}
+.float-panel .resize-handle{height:8px;cursor:ns-resize;background:transparent;flex:0 0 8px;display:flex;align-items:center;justify-content:center;touch-action:none}
+.float-panel .resize-handle::after{content:'';width:40px;height:3px;background:var(--line);border-radius:2px}
+.float-panel .resize-handle:hover::after{background:var(--accent)}
+.float-panel .panel-header{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--panel2);border-bottom:1px solid var(--line);cursor:pointer;user-select:none;flex:0 0 auto;border-radius:8px 8px 0 0}
+.float-panel .panel-header h3{margin:0;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
+.float-panel .panel-header .toggle-icon{font-size:10px;color:var(--muted);transition:transform 0.2s}
+.float-panel.collapsed .panel-header .toggle-icon{transform:rotate(180deg)}
+.float-panel.collapsed .panel-body{display:none}
+.float-panel .panel-body{flex:1;overflow:auto;min-height:0}
 
-        .search-btn:hover {
-            background: #2980b9;
-        }
+#schema{background:#fff;display:block;margin:8px auto;box-shadow:0 0 12px #0006}
+#journal table{width:100%;border-collapse:collapse;font-size:11px}
+#journal th,#journal td{border:1px solid var(--line);padding:3px 5px;text-align:left;white-space:nowrap}
+#journal th{background:var(--panel2);position:sticky;top:0;z-index:1}
+#journal{padding:6px 10px}
 
-        /* Основная область */
-        .main-container {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
+footer{flex:0 0 42px;background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 10px;z-index:var(--z-header);overflow-x:auto}
+footer button{background:#2a3055;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer;font-weight:600;font-size:12px;display:flex;align-items:center;gap:4px;white-space:nowrap}
+footer button:hover{background:#3a4478}
+footer button.active{background:var(--accent);color:#05122a;border-color:var(--accent)}
+footer .sep{width:1px;height:24px;background:var(--line);margin:0 4px;flex-shrink:0}
+footer .hint{color:var(--muted);font-size:11px;margin-left:auto;white-space:nowrap}
 
-        /* Левая панель */
-        .left-panel {
-            width: 280px;
-            background: #34495e;
-            color: white;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            overflow-y: auto;
-        }
+.dropzone{border:2px dashed #3a4478;border-radius:8px;padding:10px;text-align:center;color:var(--muted);cursor:pointer;font-size:12px;position:relative;overflow:hidden}
+.dropzone.hover{border-color:var(--accent);color:var(--text)}
+.dropzone .progress{position:absolute;left:0;bottom:0;height:4px;background:var(--accent);transition:width 0.2s;width:0}
+.sortSeg{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px}
+.sortSeg button{flex:1;min-width:90px;background:#232a4d;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px;cursor:pointer;font-size:11px}
+.sortSeg button.active{background:var(--accent);color:#05122a;border-color:var(--accent)}
+.point-search{width:100%;background:#0f1430;border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 8px;outline:none;font-size:12px;margin-bottom:4px}
+#pointList{list-style:none;padding:0;margin:0}
+#pointList li{background:#0f1430;border:1px solid var(--line);border-radius:6px;padding:4px 7px;margin:2px 0;display:flex;align-items:center;gap:5px;cursor:grab;font-size:12px}
+#pointList li.dragging{opacity:.5}
+#pointList li.drag-over{border-top:2px solid var(--accent)}
+#pointList li.selected{border-color:var(--accent);background:#2a3055}
+#pointList li .name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pointList li .goto{background:#2a3055;border:0;color:var(--text);padding:2px 5px;border-radius:4px;cursor:pointer;font-size:10px}
+#pointList .empty{color:var(--muted);text-align:center;padding:10px;font-size:11px;font-style:italic}
 
-        .panel-section {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 8px;
-        }
+.summary{background:#0f1430;border:1px solid var(--line);border-radius:6px;padding:5px 7px;font-family:Consolas,monospace;font-size:11px;color:#ffd479;white-space:nowrap;overflow:auto;margin-bottom:6px}
+.cableStats{font-family:Consolas,monospace;font-size:11px;line-height:1.5;margin-bottom:6px}
+.cableStats .row{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:2px 0;border-bottom:1px dashed #ffffff10}
+.cableStats .row:last-child{border-bottom:0}
+.cableStats .bar{flex:1;height:6px;background:#0f1430;border-radius:3px;overflow:hidden;position:relative}
+.cableStats .bar-fill{height:100%;border-radius:3px}
+.cableStats .total{font-weight:700;color:var(--accent);padding-top:4px;border-top:1px solid var(--line);margin-top:4px}
+.calc{font-family:Consolas,monospace;font-size:11px;line-height:1.35}
 
-        .panel-section h3 {
-            font-size: 16px;
-            margin-bottom: 15px;
-            color: #ecf0f1;
-        }
+.defaultCapRow{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+.defaultCapRow select{flex:1}
+.capPreview{width:36px;height:6px;border-radius:3px;border:1px solid #0008}
 
-        .cable-option {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            margin: 8px 0;
-            background: rgba(255,255,255,0.1);
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
+.filter-row{display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid #ffffff06}
+.filter-row:last-child{border-bottom:0}
+.filter-label{flex:1;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px}
+.filter-toggle{font-size:10px;color:var(--muted);cursor:pointer;user-select:none;padding:2px 6px;border-radius:4px;border:1px solid var(--line);background:#0f1430}
+.filter-toggle.active{color:var(--accent);border-color:var(--accent);background:#4ea1ff15}
+.filter-toggle:hover{color:var(--text)}
 
-        .cable-option:hover {
-            background: rgba(255,255,255,0.2);
-        }
+.leaflet-popup-content-wrapper{background:#182042;color:var(--text);border:1px solid var(--line);border-radius:10px}
+.leaflet-popup-tip{background:#182042}
+.leaflet-popup-content{margin:8px 10px;min-width:220px}
+.leaflet-popup-content label{display:block;font-size:11px;color:var(--muted);margin-top:5px}
+.leaflet-popup-content input,.leaflet-popup-content select,.leaflet-popup-content textarea{width:100%;background:#0f1430;border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 6px;font-size:11px;outline:none}
+.leaflet-popup-content .row{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
+.leaflet-popup-content .swatch{width:16px;height:16px;border-radius:4px;border:1px solid #0008;cursor:pointer;flex:0 0 16px}
+.leaflet-popup-content .swatch.active{outline:2px solid #fff}
+.leaflet-popup-content button{border:0;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:600}
+.pApply{background:#39d98a;color:#05201a}
+.pReset{background:#2a3055;color:#fff}
+.pDelete{background:#a93333;color:#fff}
+.leaflet-div-icon{background:transparent !important;border:0 !important}
+.map-label{font:600 11px system-ui;color:#111;text-shadow:0 0 2px #fff,0 0 2px #fff,1px 1px 0 #fff,-1px -1px 0 #fff;white-space:nowrap;pointer-events:none}
+.map-label.red{color:#e11b1b}
 
-        .cable-option.active {
-            background: rgba(255,255,255,0.3);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
+#toastContainer{position:fixed;right:16px;bottom:16px;z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 16px;font-size:13px;box-shadow:0 4px 16px #0008;min-width:240px;max-width:400px;animation:slideIn 0.3s ease;pointer-events:auto}
+.toast.success{border-color:var(--ok)}
+.toast.error{border-color:var(--red)}
+.toast.info{border-color:var(--accent)}
+@keyframes slideIn{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(400px);opacity:0}}
+.toast.hiding{animation:slideOut 0.3s ease forwards}
 
-        .cable-color {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            margin-right: 10px;
-            border: 2px solid white;
-        }
+.modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:var(--z-modal)}
+.modal.show{display:flex}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;max-width:420px;min-width:300px}
+.modal h3{margin:0 0 8px 0}
+.modal .actions{display:flex;gap:6px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap}
+.hint{color:#9aa3c7;font-size:11px}
 
-        .cable-4 { background: #00D2FF; }
-        .cable-8 { background: #00FF66; }
-        .cable-16 { background: #B800FF; }
-        .cable-24 { background: #FFD700; }
-        .cable-32 { background: #FF8C00; }
-        .cable-48 { background: #FF0000; }
-        .cable-64 { background: #FF69B4; }
-        .cable-72 { background: #00008B; }
-        .cable-96 { background: #ADFF2F; }
-
-        .sort-toggle {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .sort-btn {
-            padding: 10px;
-            border: none;
-            border-radius: 6px;
-            background: rgba(255,255,255,0.1);
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .sort-btn.active {
-            background: #3498db;
-        }
-
-        .sort-btn:hover {
-            background: rgba(255,255,255,0.2);
-        }
-
-        /* Зона загрузки */
-        .drop-zone {
-            border: 3px dashed #bdc3c7;
-            border-radius: 8px;
-            padding: 30px 20px;
-            text-align: center;
-            background: rgba(255,255,255,0.05);
-            transition: all 0.3s;
-            cursor: pointer;
-        }
-
-        .drop-zone.dragover {
-            border-color: #3498db;
-            background: rgba(52, 152, 219, 0.2);
-        }
-
-        .drop-zone p {
-            color: #ecf0f1;
-            margin-bottom: 10px;
-        }
-
-        .drop-zone input[type="file"] {
-            display: none;
-        }
-
-        .upload-btn {
-            background: #3498db;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .upload-btn:hover {
-            background: #2980b9;
-        }
-
-        /* Центральная зона с картой */
-        .center-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        #map {
-            flex: 1;
-            width: 100%;
-        }
-
-        /* Нижний блок со структурной схемой */
-        .scheme-container {
-            height: 350px;
-            background: white;
-            border-top: 3px solid #2c3e50;
-            padding: 20px;
-            overflow-x: auto;
-            overflow-y: hidden;
-        }
-
-        .scheme-container h3 {
-            color: #2c3e50;
-            margin-bottom: 15px;
-        }
-
-        #scheme-canvas {
-            border: 1px solid #ddd;
-            background: white;
-        }
-
-        /* Статистика */
-        .stats-panel {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1000;
-            min-width: 250px;
-        }
-
-        .stats-panel h4 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 5px;
-        }
-
-        .stat-item {
-            display: flex;
-            justify-content: space-between;
-            margin: 8px 0;
-            font-size: 14px;
-        }
-
-        .stat-label {
-            color: #7f8c8d;
-        }
-
-        .stat-value {
-            font-weight: bold;
-            color: #2c3e50;
-        }
-
-        /* Кнопки экспорта */
-        .export-buttons {
-            position: absolute;
-            bottom: 370px;
-            right: 10px;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .export-btn {
-            background: #27ae60;
-            color: white;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            transition: all 0.3s;
-        }
-
-        .export-btn:hover {
-            background: #219a52;
-            transform: translateY(-2px);
-        }
-
-        .clear-btn {
-            background: #e74c3c;
-        }
-
-        .clear-btn:hover {
-            background: #c0392b;
-        }
-
-        /* Маркеры на карте */
-        .custom-marker {
-            background: white;
-            border: 3px solid #3498db;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-        }
-
-        .building-marker {
-            background: #f39c12;
-            border: 3px solid #d35400;
-            border-radius: 4px;
-            width: 24px;
-            height: 24px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-        }
-
-        .marker-label {
-            background: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-            white-space: nowrap;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-
-        .distance-label {
-            background: rgba(52, 152, 219, 0.9);
-            color: white;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: bold;
-            white-space: nowrap;
-        }
-
-        /* Список точек */
-        .points-list {
-            max-height: 200px;
-            overflow-y: auto;
-            background: rgba(0,0,0,0.2);
-            border-radius: 6px;
-            padding: 10px;
-        }
-
-        .point-item {
-            padding: 5px;
-            font-size: 12px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .point-item:last-child {
-            border-bottom: none;
-        }
-
-        /* Адаптивность */
-        @media (max-width: 768px) {
-            .top-panel {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .project-name-input,
-            .notes-input {
-                width: 100%;
-            }
-
-            .left-panel {
-                width: 200px;
-            }
-        }
-    </style>
+@media (max-width:768px){
+  :root{--sidebar-w:0px}
+  aside{position:fixed;left:0;top:54px;bottom:42px;width:85vw;max-width:360px;transform:translateX(-100%);transition:transform 0.3s ease;border-right:1px solid var(--line);z-index:calc(var(--z-sidebar) + 100)}
+  aside.open{transform:translateX(0)}
+  .sidebar-overlay{position:fixed;inset:0;background:#000a;z-index:calc(var(--z-sidebar) + 50);display:none}
+  .sidebar-overlay.show{display:block}
+  #menuToggle{display:block}
+  #workspace{flex-direction:column}
+  .float-panel{left:10px;right:10px}
+  header{flex-wrap:wrap;height:auto;padding:6px}
+  footer .hint{display:none}
+  .basemap-switcher{top:60px;right:6px;max-height:60vh}
+}
+</style>
 </head>
 <body>
-    <!-- Верхняя панель -->
-    <div class="top-panel">
-        <h1>📡 Автоматизация ВОЛС</h1>
-        <input type="text" 
-               id="projectName" 
-               class="project-name-input" 
-               placeholder="Название проекта..."
-               value="Проект ВОЛС">
-        <input type="text" 
-               id="specialNotes" 
-               class="notes-input" 
-               placeholder="Особые отметки (например: ВАРИТЬ С ПРОСВЕТКОЙ)">
-        <div class="search-container">
-            <input type="text" 
-                   id="searchInput" 
-                   class="search-input" 
-                   placeholder="Адрес или координаты (56.8389, 60.6057)">
-            <button class="search-btn" id="searchBtn">🔍 Найти</button>
+<div id="app">
+
+<header>
+  <h1>ВОЛС·SPA·2026.3</h1>
+  <div class="header-actions">
+    <button id="undoBtn" title="Отменить (Ctrl+Z)" disabled>↶</button>
+    <button id="redoBtn" title="Повторить (Ctrl+Y)" disabled>↷</button>
+  </div>
+  <div class="search"><input id="geosearch" placeholder="Поиск / координаты: 56.8389, 60.6057" aria-label="Поиск адреса"></div>
+  <div class="notes"><textarea id="globalNotes" placeholder="Особые отметки (красным на схему)" aria-label="Особые отметки"></textarea></div>
+</header>
+
+<div id="workspace">
+  <aside id="sidebar">
+    
+    <div class="accordion">
+      <div class="accordion-header" data-accordion="dataBlock">
+        <h3> Данные и импорт</h3>
+        <span class="icon">▼</span>
+      </div>
+      <div class="accordion-content" id="dataBlock">
+        <div class="dropzone" id="dz">Перетащите JPG с GPS<br>или <button class="secondary" id="pickBtn">Выбрать фото</button><input type="file" id="fileInput" accept=".jpg,.jpeg" multiple hidden><div class="progress" id="exifProgress"></div></div>
+        <div class="row" style="margin-top:6px">
+          <button id="addClickBtn" style="flex:1">+ Точка</button>
+          <button class="secondary" id="importKmlBtn" style="flex:1">📥 KML</button>
+          <input type="file" id="kmlInput" accept=".kml,.kmz" hidden>
+          <button class="danger" id="clearAllBtn" style="flex:1">Очистить</button>
         </div>
+      </div>
     </div>
 
-    <!-- Основной контейнер -->
-    <div class="main-container">
-        <!-- Левая панель -->
-        <div class="left-panel">
-            <!-- Выбор емкости кабеля -->
-            <div class="panel-section">
-                <h3>📊 Емкость кабеля</h3>
-                <div class="cable-option active" data-capacity="4">
-                    <div class="cable-color cable-4"></div>
-                    <span>4 волокна</span>
-                </div>
-                <div class="cable-option" data-capacity="8">
-                    <div class="cable-color cable-8"></div>
-                    <span>8 волокон</span>
-                </div>
-                <div class="cable-option" data-capacity="16">
-                    <div class="cable-color cable-16"></div>
-                    <span>16 волокон</span>
-                </div>
-                <div class="cable-option" data-capacity="24">
-                    <div class="cable-color cable-24"></div>
-                    <span>24 волокна</span>
-                </div>
-                <div class="cable-option" data-capacity="32">
-                    <div class="cable-color cable-32"></div>
-                    <span>32 волокна</span>
-                </div>
-                <div class="cable-option" data-capacity="48">
-                    <div class="cable-color cable-48"></div>
-                    <span>48 волокон</span>
-                </div>
-                <div class="cable-option" data-capacity="64">
-                    <div class="cable-color cable-64"></div>
-                    <span>64 волокна</span>
-                </div>
-                <div class="cable-option" data-capacity="72">
-                    <div class="cable-color cable-72"></div>
-                    <span>72 волокна</span>
-                </div>
-                <div class="cable-option" data-capacity="96">
-                    <div class="cable-color cable-96"></div>
-                    <span>96 волокон</span>
-                </div>
-            </div>
-
-            <!-- Режим сортировки -->
-            <div class="panel-section">
-                <h3>🔀 Сортировка точек</h3>
-                <div class="sort-toggle">
-                    <button class="sort-btn active" data-sort="time">
-                        ⏰ По времени съемки
-                    </button>
-                    <button class="sort-btn" data-sort="distance">
-                        📏 По минимальному расстоянию
-                    </button>
-                </div>
-            </div>
-
-            <!-- Загрузка фото -->
-            <div class="panel-section">
-                <h3>📷 Загрузка фото</h3>
-                <div class="drop-zone" id="dropZone">
-                    <p>Перетащите фото опор/муфт<br>или кликните для выбора</p>
-                    <input type="file" id="fileInput" multiple accept="image/*">
-                    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
-                        Выбрать файлы
-                    </button>
-                </div>
-            </div>
-
-            <!-- Список точек -->
-            <div class="panel-section">
-                <h3>📍 Точки на трассе (<span id="pointsCount">0</span>)</h3>
-                <div class="points-list" id="pointsList"></div>
-            </div>
+    <div class="accordion">
+      <div class="accordion-header" data-accordion="pointsBlock">
+        <h3>📋 Точки трассы</h3>
+        <span class="icon">▼</span>
+      </div>
+      <div class="accordion-content" id="pointsBlock">
+        <input type="text" id="pointSearch" class="point-search" placeholder="🔍 Поиск по имени/заметке...">
+        <div class="sortSeg" id="sortSeg">
+          <button data-sort="time">Время</button>
+          <button data-sort="distance">Расст.</button>
+          <button data-sort="index" class="active">Номер</button>
         </div>
-
-        <!-- Центральная область -->
-        <div class="center-area">
-            <div id="map"></div>
-            
-            <!-- Панель статистики -->
-            <div class="stats-panel">
-                <h4>📈 Сводка по проекту</h4>
-                <div class="stat-item">
-                    <span class="stat-label">Общая длина трассы:</span>
-                    <span class="stat-value" id="totalLength">0 м</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">С запасом 10%:</span>
-                    <span class="stat-value" id="totalWithReserve">0 м</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Количество опор:</span>
-                    <span class="stat-value" id="polesCount">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Средний пролет:</span>
-                    <span class="stat-value" id="avgSpan">0 м</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Кабель:</span>
-                    <span class="stat-value" id="cableType">4 волокна</span>
-                </div>
-            </div>
-
-            <!-- Кнопки экспорта -->
-            <div class="export-buttons">
-                <button class="export-btn" id="exportBtn">
-                    💾 Скачать исполнительную схему
-                </button>
-                <button class="export-btn clear-btn" id="clearBtn">
-                    🗑️ Очистить всё
-                </button>
-            </div>
+        <div class="point-list-container">
+          <ul id="pointList" aria-label="Список точек"></ul>
         </div>
+      </div>
     </div>
 
-    <!-- Нижний блок со структурной схемой -->
-    <div class="scheme-container">
-        <h3>📋 Линейно-структурная схема</h3>
-        <canvas id="scheme-canvas"></canvas>
+    <div class="accordion">
+      <div class="accordion-header" data-accordion="settingsBlock">
+        <h3>⚙️ Настройки трассы</h3>
+        <span class="icon">▼</span>
+      </div>
+      <div class="accordion-content" id="settingsBlock">
+        <h3 style="margin-bottom:4px">Ёмкость по умолчанию</h3>
+        <div class="defaultCapRow"><select id="defaultCap"></select><div class="capPreview" id="capPreview"></div></div>
+        <button class="secondary" id="applyCapAllBtn" style="width:100%;font-size:11px;margin-bottom:8px">Применить ко всей трассе</button>
+        
+        <h3 style="margin:8px 0 4px">Параметры запаса</h3>
+        <div class="row" style="margin-bottom:8px;gap:6px">
+          <label style="flex:1">Запас N%: <input type="number" id="reserve" value="25" min="0" max="50" step="1" style="width:52px"></label>
+          <label style="flex:1">Разварка м: <input type="number" id="spliceReserve" value="15" min="0" max="100" step="1" style="width:52px"></label>
+        </div>
+
+        <h3 style="margin:8px 0 4px">Отображение</h3>
+        <div class="filter-row">
+          <label class="filter-label"><input type="checkbox" data-f="names"> Названия</label>
+          <span class="filter-toggle active" data-ft="names" title="Если включено, отображается ТОЛЬКО на схеме А4, а не на карте">Только схема</span>
+        </div>
+        <div class="filter-row">
+          <label class="filter-label"><input type="checkbox" data-f="notes"> Заметки</label>
+          <span class="filter-toggle active" data-ft="notes" title="Только на схеме">Только схема</span>
+        </div>
+        <div class="filter-row">
+          <label class="filter-label"><input type="checkbox" data-f="coords"> Геометки</label>
+          <span class="filter-toggle active" data-ft="coords" title="Только на схеме">Только схема</span>
+        </div>
+        <div class="filter-row">
+          <label class="filter-label"><input type="checkbox" data-f="capacity"> Емкость</label>
+          <span class="filter-toggle active" data-ft="capacity" title="Только на схеме">Только схема</span>
+        </div>
+        <div class="filter-row">
+          <label class="filter-label"><input type="checkbox" data-f="lengths"> Длины</label>
+          <span class="filter-toggle active" data-ft="lengths" title="Только на схеме">Только схема</span>
+        </div>
+        <div class="filter-row">
+          <label class="filter-label"><input type="checkbox" data-f="summary"> Сводка</label>
+          <span class="filter-toggle active" data-ft="summary" title="Только на схеме">Только схема</span>
+        </div>
+        <div style="margin-top:6px;border-top:1px solid var(--line);padding-top:6px">
+          <label><input type="checkbox" data-f="blackred" checked> УО чёрным, текст красным</label>
+          <label style="margin-top:2px"><input type="checkbox" data-f="textbg"> Подложка текста на схеме</label>
+        </div>
+      </div>
     </div>
 
-    <!-- Библиотеки -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
-            crossorigin=""></script>
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <div class="accordion">
+      <div class="accordion-header collapsed" data-accordion="analyticsBlock">
+        <h3>📊 Расчёты и аналитика</h3>
+        <span class="icon">▼</span>
+      </div>
+      <div class="accordion-content collapsed" id="analyticsBlock">
+        <h3 style="margin-bottom:4px">Сводка</h3>
+        <div class="summary" id="summary">—</div>
+        <h3 style="margin:8px 0 4px">Статистика кабелей</h3>
+        <div class="cableStats" id="cableStats">—</div>
+        <h3 style="margin:8px 0 4px">Калькулятор арматуры</h3>
+        <div class="calc" id="calc">—</div>
+      </div>
+    </div>
 
-    <script>
-        // ============================================
-        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-        // ============================================
-        let map;
-        let markers = [];
-        let polylines = [];
-        let distanceLabels = [];
-        let points = [];
-        let selectedCapacity = 4;
-        let sortMode = 'time';
-        let searchMarker = null;
-        
-        const CABLE_COLORS = {
-            4: '#00D2FF',
-            8: '#00FF66',
-            16: '#B800FF',
-            24: '#FFD700',
-            32: '#FF8C00',
-            48: '#FF0000',
-            64: '#FF69B4',
-            72: '#00008B',
-            96: '#ADFF2F'
-        };
+    <div class="accordion">
+      <div class="accordion-header collapsed" data-accordion="projectBlock">
+        <h3>💾 Управление проектом</h3>
+        <span class="icon">▼</span>
+      </div>
+      <div class="accordion-content collapsed" id="projectBlock">
+        <div class="row" style="margin-bottom:6px">
+          <button id="saveProjBtn" style="flex:1">💾 Сохранить</button>
+          <button class="secondary" id="loadProjBtn" style="flex:1">📂 Загрузить</button>
+          <input type="file" id="projInput" accept=".json" hidden>
+        </div>
+        <button class="secondary" id="restoreAutoBtn" style="width:100%;margin-bottom:6px" title="Восстановить автосохранение">♻ Восстановить автосейв</button>
+        <div class="hint">Автосохранение каждые 10 сек. <br>Ctrl+Z / Ctrl+Y для отмены действий.</div>
+      </div>
+    </div>
 
-        const CABLE_NAMES = {
-            4: '4 волокна',
-            8: '8 волокон',
-            16: '16 волокон',
-            24: '24 волокна',
-            32: '32 волокна',
-            48: '48 волокон',
-            64: '64 волокна',
-            72: '72 волокна',
-            96: '96 волокон'
-        };
+  </aside>
 
-        // ============================================
-        // ИНИЦИАЛИЗАЦИЯ КАРТЫ
-        // ============================================
-        function initMap() {
-            // Создаем карту с центром в России (можно изменить)
-            map = L.map('map').setView([55.7558, 37.6173], 10);
+  <div id="mapContainer">
+    <div id="map"></div>
 
-            // Добавляем тайлы OpenStreetMap
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors',
-                maxZoom: 19
-            }).addTo(map);
+    <div class="basemap-switcher" id="basemapSwitcher" role="group" aria-label="Выбор подложки">
+      <div class="basemap-group">
+        <div class="basemap-group-title">OpenStreetMap</div>
+        <button data-basemap="osm" class="active" title="OpenStreetMap (карта)">
+          <span class="swatch" style="background:linear-gradient(135deg,#aed581,#81c784)"></span>Карта
+        </button>
+        <button data-basemap="osm_satellite" title="Спутник ESRI (OSM)">
+          <span class="swatch" style="background:linear-gradient(135deg,#3e2723,#1b5e20)"></span>Спутник
+        </button>
+        <button data-basemap="osm_hybrid" title="Гибрид ESRI (OSM)">
+          <span class="swatch" style="background:linear-gradient(135deg,#5d4037,#fff176)"></span>Гибрид
+        </button>
+      </div>
+      
+      <div class="basemap-group">
+        <div class="basemap-group-title">Google Maps</div>
+        <button data-basemap="google_map" title="Google Maps">
+          <span class="swatch" style="background:linear-gradient(135deg,#4285f4,#34a853)"></span>Карта
+        </button>
+        <button data-basemap="google_satellite" title="Google Satellite">
+          <span class="swatch" style="background:linear-gradient(135deg,#1a237e,#0d47a1)"></span>Спутник
+        </button>
+        <button data-basemap="google_hybrid" title="Google Hybrid">
+          <span class="swatch" style="background:linear-gradient(135deg,#1a237e,#ffeb3b)"></span>Гибрид
+        </button>
+      </div>
+      
+      <div class="basemap-group">
+        <div class="basemap-group-title">Яндекс Карты</div>
+        <button data-basemap="yandex_map" title="Яндекс Карта">
+          <span class="swatch" style="background:linear-gradient(135deg,#fc3f1d,#ffd400)"></span>Карта
+        </button>
+        <button data-basemap="yandex_satellite" title="Яндекс Спутник">
+          <span class="swatch" style="background:linear-gradient(135deg,#0d47a1,#424242)"></span>Спутник
+        </button>
+        <button data-basemap="yandex_hybrid" title="Яндекс Гибрид (спутник + схема)">
+          <span class="swatch" style="background:linear-gradient(135deg,#0d47a1,#ffd400)"></span>Гибрид
+        </button>
+      </div>
+      
+      <div class="basemap-group">
+        <div class="basemap-group-title">Другие</div>
+        <button data-basemap="topo" title="OpenTopoMap">
+          <span class="swatch" style="background:linear-gradient(135deg,#ffcc80,#a1887f)"></span>Топо
+        </button>
+        <button data-basemap="dark" title="CartoDB Dark">
+          <span class="swatch" style="background:linear-gradient(135deg,#263238,#455a64)"></span>Тёмная
+        </button>
+      </div>
+    </div>
 
-            // Настраиваем кастомные иконки
-            setupCustomIcons();
-            
-            // Добавляем поиск по адресу
-            setupSearch();
-        }
-        
-        // Настройка поиска по адресу/координатам
-        function setupSearch() {
-            const searchBtn = document.getElementById('searchBtn');
-            const searchInput = document.getElementById('searchInput');
-            
-            searchBtn.addEventListener('click', performSearch);
-            searchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') performSearch();
-            });
-        }
-        
-        // Выполнение поиска
-        function performSearch() {
-            const query = document.getElementById('searchInput').value.trim();
-            if (!query) return;
-            
-            // Проверяем, не координаты ли это (формат "широта, долгота")
-            const coordMatch = query.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
-            
-            if (coordMatch) {
-                const lat = parseFloat(coordMatch[1]);
-                const lon = parseFloat(coordMatch[2]);
-                
-                if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
-                    goToLocation(lat, lon, 'Координаты');
-                    return;
-                }
+    <div class="float-panel hidden" id="schemaPanel">
+      <div class="resize-handle" data-panel="schemaPanel"></div>
+      <div class="panel-header" data-toggle="schemaPanel">
+        <span class="toggle-icon">▼</span>
+        <h3>📐 Схема трассы ВОЛС (А4)</h3>
+      </div>
+      <div class="panel-body"><canvas id="schema" width="1122" height="400"></canvas></div>
+    </div>
+    <div class="float-panel hidden" id="journalPanel">
+      <div class="resize-handle" data-panel="journalPanel"></div>
+      <div class="panel-header" data-toggle="journalPanel">
+        <span class="toggle-icon">▼</span>
+        <h3>📋 Строительная ведомость</h3>
+        <span style="flex:1"></span>
+        <button id="csvBtn" style="font-size:10px;padding:3px 8px" onclick="event.stopPropagation()">CSV</button>
+      </div>
+      <div class="panel-body" id="journal">
+        <table>
+          <thead><tr><th>№</th><th>Нач.точка</th><th>Геометка нач.</th><th>ВОК нач.,м</th><th>Кон.точка</th><th>Геометка кон.</th><th>ВОК кон.,м</th><th>Емк.</th><th>Длина,м</th></tr></thead>
+          <tbody id="journalBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <button id="toggleSchema" title="Показать/скрыть схему">📐 Схема</button>
+  <button id="toggleJournal" title="Показать/скрыть ведомость">📋 Ведомость</button>
+  <div class="sep"></div>
+  <button id="exportKmlBtn" title="Экспорт в KML (Google Earth)"> KML</button>
+  <button id="exportDocBtn">💾 PNG</button>
+  <button id="shotBtn">📷 Скрин</button>
+  <span class="hint">v2026.3 · 11 карт (OSM/Google/Яндекс) · Ctrl+Z/Y</span>
+</footer>
+
+</div>
+
+<div id="toastContainer"></div>
+<div class="modal" id="modal"><div class="box"><h3 id="modalTitle">Сообщение</h3><div id="modalBody"></div><div class="actions" id="modalActions"><button id="modalOk">OK</button></div></div></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.js"></script>
+<script src="https://unpkg.com/exif-js@2.3.0/exif.js"></script>
+<script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+(function VOLS_APP() {
+  'use strict';
+
+  const COLORS = ['#111111','#e53935','#1e88e5','#43a047','#f9a825','#fb8c00','#8e24aa','#00838f','#d81b60','#5d4037'];
+  const SHAPES = ['dot','triangle','circle','square','diamond'];
+  const SHAPE_NAMES = {dot:'Опора',triangle:'УС',circle:'ОМ',square:'РШ',diamond:'Ромб'};
+  const CAPACITIES = [1,4,8,16,24,32,48,64,72,96];
+  const CAP_NAMES = {1:'ВОК-1 (дроп)',4:'ВОК-4',8:'ВОК-8',16:'ВОК-16',24:'ВОК-24',32:'ВОК-32',48:'ВОК-48',64:'ВОК-64',72:'ВОК-72',96:'ВОК-96'};
+  const CAP_COLORS = {1:'#000000',4:'#1565c0',8:'#2e7d32',16:'#8e24aa',24:'#00838f',32:'#f57c00',48:'#c62828',64:'#6d4c41',72:'#d81b60',96:'#546e7a'};
+  const LINE_STYLES = {solid:[],dashed:[8,5],dashdot:[12,3,3,3]};
+  const LINE_STYLE_NAMES = {solid:'Сплошная',dashed:'Прерывистая',dashdot:'Штрихпунктирная'};
+  const APP_VERSION = 2026.3;
+  const AUTOSAVE_KEY = 'vols_autosave_v3';
+  const HISTORY_LIMIT = 50;
+
+  const BASEMAPS = {
+    osm: { name: 'OSM Карта', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opts: {maxZoom: 19, attribution: '© OpenStreetMap', crossOrigin: 'anonymous'} },
+    osm_satellite: { name: 'OSM Спутник (ESRI)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', opts: {maxZoom: 19, attribution: '© ESRI World Imagery', crossOrigin: 'anonymous'} },
+    osm_hybrid: { name: 'OSM Гибрид (ESRI)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', overlay: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', opts: {maxZoom: 19, attribution: '© ESRI', crossOrigin: 'anonymous'} }, opts: {maxZoom: 19, attribution: '© ESRI', crossOrigin: 'anonymous'} },
+    google_map: { name: 'Google Карта', url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', opts: {maxZoom: 21, attribution: '© Google', crossOrigin: 'anonymous'} },
+    google_satellite: { name: 'Google Спутник', url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', opts: {maxZoom: 21, attribution: '© Google', crossOrigin: 'anonymous'} },
+    google_hybrid: { name: 'Google Гибрид', url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', opts: {maxZoom: 21, attribution: '© Google', crossOrigin: 'anonymous'} },
+    yandex_map: { name: 'Яндекс Карта', url: 'https://vec01.maps.yandex.net/tiles?l=map&x={x}&y={y}&z={z}', opts: {maxZoom: 19, attribution: '© Яндекс', crossOrigin: 'anonymous'} },
+    yandex_satellite: { name: 'Яндекс Спутник', url: 'https://sat01.maps.yandex.net/tiles?l=sat&x={x}&y={y}&z={z}', opts: {maxZoom: 19, attribution: '© Яндекс', crossOrigin: 'anonymous'} },
+    yandex_hybrid: { name: 'Яндекс Гибрид', url: 'https://sat01.maps.yandex.net/tiles?l=skl&x={x}&y={y}&z={z}', overlay: { url: 'https://sat01.maps.yandex.net/tiles?l=sat&x={x}&y={y}&z={z}', opts: {maxZoom: 19, attribution: '© Яндекс', crossOrigin: 'anonymous'} }, opts: {maxZoom: 19, attribution: '© Яндекс', crossOrigin: 'anonymous'} },
+    topo: { name: 'OpenTopoMap', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', opts: {maxZoom: 17, attribution: '© OpenTopoMap', crossOrigin: 'anonymous'} },
+    dark: { name: 'CartoDB Dark', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', opts: {maxZoom: 19, attribution: '© CartoDB © OSM', crossOrigin: 'anonymous'} }
+  };
+
+  const Utils = {
+    escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+    escapeXml(s) { return String(s == null ? '' : s).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c])); },
+    haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371000, toR = x => x * Math.PI / 180;
+      const dLat = toR(lat2 - lat1), dLon = toR(lon2 - lon1);
+      const a = Math.sin(dLat/2)**2 + Math.cos(toR(lat1))*Math.cos(toR(lat2))*Math.sin(dLon/2)**2;
+      return 2 * R * Math.asin(Math.sqrt(a));
+    },
+    debounce(fn, ms = 300) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; },
+    dmsToDec(dms, ref) {
+      if (!Array.isArray(dms) || dms.length < 3) return NaN;
+      const toNum = v => { if (typeof v === 'number') return v; if (v && typeof v === 'object' && 'numerator' in v && 'denominator' in v) return v.denominator === 0 ? 0 : v.numerator / v.denominator; return Number(v) || 0; };
+      const d = toNum(dms[0]) + toNum(dms[1])/60 + toNum(dms[2])/3600;
+      return (ref === 'S' || ref === 'W') ? -d : d;
+    }
+  };
+
+  const bus = { _l: {}, on(ev, fn) { (this._l[ev] ||= []).push(fn); }, off(ev, fn) { this._l[ev] = (this._l[ev] || []).filter(f => f !== fn); }, emit(ev, data) { (this._l[ev] || []).forEach(fn => { try { fn(data); } catch(e) { console.error(e); } }); } };
+
+  const UI = {
+    toast(msg, type = 'info', duration = 3000) {
+      const el = document.createElement('div'); el.className = 'toast ' + type; el.textContent = msg; el.setAttribute('role', 'status');
+      document.getElementById('toastContainer').appendChild(el);
+      setTimeout(() => { el.classList.add('hiding'); setTimeout(() => el.remove(), 300); }, duration);
+    },
+    show(title, body, actions = [{label: 'OK', primary: true}]) {
+      document.getElementById('modalTitle').textContent = title; document.getElementById('modalBody').innerHTML = body;
+      const actionsEl = document.getElementById('modalActions'); actionsEl.innerHTML = '';
+      actions.forEach(act => {
+        const btn = document.createElement('button'); btn.textContent = act.label;
+        if (act.primary) btn.style.background = '#4ea1ff'; if (act.danger) btn.style.background = '#a93333';
+        btn.onclick = () => { document.getElementById('modal').classList.remove('show'); if (act.onClick) act.onClick(); };
+        actionsEl.appendChild(btn);
+      });
+      document.getElementById('modal').classList.add('show');
+    },
+    hide() { document.getElementById('modal').classList.remove('show'); },
+    confirm(title, body) { return new Promise(resolve => { this.show(title, body, [{label: 'Отмена', onClick: () => resolve(false)}, {label: 'Подтвердить', primary: true, onClick: () => resolve(true)}]); }); }
+  };
+
+  const Storage = {
+    _db: null,
+    async openDB() {
+      if (this._db) return this._db;
+      return new Promise((res, rej) => {
+        const req = indexedDB.open('vols_projects', 1);
+        req.onupgradeneeded = e => { const db = e.target.result; if (!db.objectStoreNames.contains('projects')) db.createObjectStore('projects'); };
+        req.onsuccess = e => { this._db = e.target.result; res(this._db); };
+        req.onerror = e => rej(e);
+      });
+    },
+    async saveProject(project) {
+      try { const db = await this.openDB(); const tx = db.transaction('projects', 'readwrite'); tx.objectStore('projects').put(project, 'autosave'); localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(project)); } 
+      catch (e) { try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(project)); } catch (err) {} }
+    },
+    async loadProject() {
+      try {
+        const db = await this.openDB();
+        return new Promise(res => { const tx = db.transaction('projects', 'readonly'); const req = tx.objectStore('projects').get('autosave'); req.onsuccess = () => res(req.result || null); req.onerror = () => res(null); });
+      } catch (e) { const s = localStorage.getItem(AUTOSAVE_KEY); return s ? JSON.parse(s) : null; }
+    }
+  };
+
+  const Validator = {
+    validate(d) {
+      if (!d || typeof d !== 'object') throw new Error('Невалидный объект');
+      if (!Array.isArray(d.points)) throw new Error('points должен быть массивом');
+      if (!Array.isArray(d.segments)) throw new Error('segments должен быть массивом');
+      for (const p of d.points) { if (typeof p.id !== 'number') throw new Error('point.id должен быть числом'); if (typeof p.lat !== 'number' || !isFinite(p.lat)) throw new Error(`point ${p.id}: невалидная широта`); if (typeof p.lng !== 'number' || !isFinite(p.lng)) throw new Error(`point ${p.id}: невалидная долгота`); }
+      const ids = new Set(d.points.map(p => p.id));
+      for (const s of d.segments) { if (!ids.has(s.a)) throw new Error(`segment: неизвестная точка a=${s.a}`); if (!ids.has(s.b)) throw new Error(`segment: неизвестная точка b=${s.b}`); }
+      return true;
+    },
+    migrate(d) {
+      d.version = d.version || APP_VERSION; d.spliceReserve = d.spliceReserve ?? 15; d.reserve = d.reserve ?? 25; d.defaultCapacity = d.defaultCapacity ?? 4;
+      d.sortMode = d.sortMode || 'index'; d.filters = d.filters || {};
+      d.filters.schemaOnly = d.filters.schemaOnly || {names:true,notes:true,coords:true,capacity:true,lengths:true,summary:true};
+      d.panels = d.panels || {schema:{visible:false,collapsed:false,height:'35vh'},journal:{visible:false,collapsed:false,height:'25vh'}};
+      d.globalNotes = d.globalNotes || ''; d.counter = d.counter || Math.max(0, ...d.points.map(p => p.id || 0));
+      d.basemap = d.basemap || 'osm';
+      return d;
+    }
+  };
+
+  const state = {
+    points: [], segments: [], sortMode: 'index',
+    filters: { names:false, notes:false, coords:false, capacity:false, lengths:false, summary:false, blackred:true, textbg:false, schemaOnly:{names:true,notes:true,coords:true,capacity:true,lengths:true,summary:true} },
+    reserve: 25, spliceReserve: 15, globalNotes: '', defaultCapacity: 4,
+    clickMode: null, counter: 0, tempMarker: null, selectedPointId: null, pointSearchQuery: '', basemap: 'osm',
+    panels: { schema: {visible: false, collapsed: false, height: '35vh'}, journal: {visible: false, collapsed: false, height: '25vh'} }
+  };
+
+  const History = {
+    stack: [], future: [],
+    push(cmd) { this.stack.push(cmd); if (this.stack.length > HISTORY_LIMIT) this.stack.shift(); this.future = []; bus.emit('history:change'); },
+    undo() { const cmd = this.stack.pop(); if (!cmd) { UI.toast('Нечего отменять', 'info', 1500); return; } cmd.undo(); this.future.push(cmd); bus.emit('history:change'); bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); },
+    redo() { const cmd = this.future.pop(); if (!cmd) { UI.toast('Нечего повторять', 'info', 1500); return; } cmd.execute(); this.stack.push(cmd); bus.emit('history:change'); bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); },
+    clear() { this.stack = []; this.future = []; bus.emit('history:change'); }
+  };
+
+  class AddPointCmd { constructor(data) { this.data = data; this.id = null; } execute() { const p = Object.assign({}, this.data); p.id = ++state.counter; p.shape = p.shape || 'dot'; p.color = p.color || COLORS[1]; p.note = p.note || ''; state.points.push(p); this.id = p.id; MapModule.createMarker(p); SegmentsModule.rebuild(); } undo() { const idx = state.points.findIndex(x => x.id === this.id); if (idx < 0) return; MapModule.removeMarker(state.points[idx]); state.points.splice(idx, 1); SegmentsModule.rebuild(); } }
+  class AddBatchPointsCmd { constructor(data) { this.data = data; this.ids = []; this.oldSegments = null; } execute() { this.oldSegments = state.segments.map(s => Object.assign({}, s)); this.data.forEach(d => { const p = Object.assign({}, d); p.id = ++state.counter; p.shape = p.shape || 'dot'; p.color = p.color || COLORS[1]; p.note = p.note || ''; state.points.push(p); MapModule.createMarker(p); this.ids.push(p.id); }); SegmentsModule.rebuild(); } undo() { this.ids.forEach(id => { const idx = state.points.findIndex(p => p.id === id); if (idx >= 0) { MapModule.removeMarker(state.points[idx]); state.points.splice(idx, 1); } }); if (this.oldSegments) state.segments = this.oldSegments; MapModule.redrawSegments(); } }
+  class RemovePointCmd { constructor(id) { this.id = id; this.snapshot = null; this.oldSegments = null; } execute() { const idx = state.points.findIndex(p => p.id === this.id); if (idx < 0) return; this.snapshot = Object.assign({}, state.points[idx]); this.oldSegments = state.segments.map(s => Object.assign({}, s)); MapModule.removeMarker(state.points[idx]); state.points.splice(idx, 1); SegmentsModule.rebuild(); } undo() { if (!this.snapshot) return; state.points.push(Object.assign({}, this.snapshot)); MapModule.createMarker(state.points[state.points.length - 1]); state.segments = this.oldSegments.map(s => Object.assign({}, s)); MapModule.redrawSegments(); } }
+  class MovePointCmd { constructor(id, oldLL, newLL) { this.id = id; this.old = oldLL; this.new = newLL; } execute() { const p = state.points.find(x => x.id === this.id); if (p) { p.lat = this.new.lat; p.lng = this.new.lng; MapModule.updateMarkerPosition(p); } } undo() { const p = state.points.find(x => x.id === this.id); if (p) { p.lat = this.old.lat; p.lng = this.old.lng; MapModule.updateMarkerPosition(p); } } }
+  class ReorderCmd { constructor(from, to) { this.from = from; this.to = to; } execute() { const [m] = state.points.splice(this.from, 1); state.points.splice(this.to, 0, m); SegmentsModule.rebuild(); } undo() { const [m] = state.points.splice(this.to, 1); state.points.splice(this.from, 0, m); SegmentsModule.rebuild(); } }
+  class UpdatePointCmd { constructor(id, oldP, newP) { this.id = id; this.old = oldP; this.new = newP; } execute() { const p = state.points.find(x => x.id === this.id); if (p) { Object.assign(p, this.new); MapModule.updateMarkerIcon(p); MapModule.updateLabels(p); } } undo() { const p = state.points.find(x => x.id === this.id); if (p) { Object.assign(p, this.old); MapModule.updateMarkerIcon(p); MapModule.updateLabels(p); } } }
+  class UpdateSegmentCmd { constructor(key, oldP, newP) { this.key = key; this.old = oldP; this.new = newP; } execute() { const s = state.segments.find(x => x.a+'-'+x.b === this.key || x.b+'-'+x.a === this.key); if (s) { Object.assign(s, this.new); MapModule.redrawSegments(); } } undo() { const s = state.segments.find(x => x.a+'-'+x.b === this.key || x.b+'-'+x.a === this.key); if (s) { Object.assign(s, this.old); MapModule.redrawSegments(); } } }
+  class ApplyCapAllCmd { constructor(cap) { this.cap = cap; this.oldSegments = null; } execute() { this.oldSegments = state.segments.map(s => ({capacity:s.capacity,color:s.color,style:s.style,a:s.a,b:s.b})); state.segments.forEach(s => { s.capacity = this.cap; s.color = null; s.style = 'solid'; }); MapModule.redrawSegments(); } undo() { if (!this.oldSegments) return; state.segments.forEach(s => { const o = this.oldSegments.find(x => x.a === s.a && x.b === s.b); if (o) { s.capacity = o.capacity; s.color = o.color; s.style = o.style; } }); MapModule.redrawSegments(); } }
+
+  const MapModule = {
+    map: null, geocoder: null, currentTile: null, currentOverlay: null,
+    init() {
+      this.map = L.map('map', {preferCanvas:false, zoomControl:true}).setView([56.8389, 60.6057], 13);
+      this.setBasemap(state.basemap);
+      this.geocoder = L.Control.geocoder({defaultMarkGeocode:false, placeholder:'Адрес (Nominatim)', collapsed:false})
+        .on('markgeocode', e => { this.map.setView(e.geocode.center, 17); if (state.tempMarker) this.map.removeLayer(state.tempMarker); state.tempMarker = L.marker(e.geocode.center, {icon: this.tmpIcon()}).addTo(this.map); setTimeout(() => { if (state.tempMarker) { this.map.removeLayer(state.tempMarker); state.tempMarker = null; } }, 6000); }).addTo(this.map);
+      this.map.on('click', e => this.onMapClick(e));
+      this.map.on('click', e => { if (!e.originalEvent.target.closest('.leaflet-popup') && !e.originalEvent.target.closest('.leaflet-marker-icon')) { state.selectedPointId = null; bus.emit('points:selection-changed'); } });
+    },
+    setBasemap(key) {
+      if (!BASEMAPS[key]) return;
+      if (this.currentTile) { try { this.map.removeLayer(this.currentTile); } catch(e){} this.currentTile = null; }
+      if (this.currentOverlay) { try { this.map.removeLayer(this.currentOverlay); } catch(e){} this.currentOverlay = null; }
+      const bm = BASEMAPS[key];
+      try {
+        this.currentTile = L.tileLayer(bm.url, bm.opts).addTo(this.map);
+        if (bm.overlay) this.currentOverlay = L.tileLayer(bm.overlay.url, bm.overlay.opts).addTo(this.map);
+      } catch(err) {
+        console.warn('Не удалось загрузить подложку:', key, err);
+        UI.toast('Подложка недоступна: ' + key, 'error', 3000);
+        this.setBasemap('osm');
+        return;
+      }
+      state.basemap = key;
+      document.querySelectorAll('#basemapSwitcher button').forEach(b => b.classList.toggle('active', b.dataset.basemap === key));
+    },
+    tmpIcon() { return L.divIcon({html: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#4ea1ff" stroke="#fff" stroke-width="2"/></svg>`, iconSize: [16,16], iconAnchor: [8,8], className: 'leaflet-div-icon'}); },
+    shapeSVG(shape, color, size = 18, stroke = '#000') {
+      const s = size, h = s/2; let inner = '';
+      switch(shape) {
+        case 'dot': inner = `<circle cx="${h}" cy="${h}" r="${h-2}" fill="${color}" stroke="${stroke}" stroke-width="1.5"/>`; break;
+        case 'triangle': inner = `<polygon points="${h},1 ${s-1},${s-1} 1,${s-1}" fill="${color}" stroke="${stroke}" stroke-width="1.5"/>`; break;
+        case 'circle': inner = `<circle cx="${h}" cy="${h}" r="${h-1}" fill="${color}" stroke="${stroke}" stroke-width="1.5"/>`; break;
+        case 'square': inner = `<rect x="1" y="1" width="${s-2}" height="${s-2}" fill="${color}" stroke="${stroke}" stroke-width="1.5"/>`; break;
+        case 'diamond': inner = `<polygon points="${h},1 ${s-1},${h} ${h},${s-1} 1,${h}" fill="${color}" stroke="${stroke}" stroke-width="1.5"/>`; break;
+      }
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">${inner}</svg>`;
+    },
+    markerIcon(p) { const color = state.filters.blackred ? '#000' : (p.color || COLORS[1]); return L.divIcon({html: this.shapeSVG(p.shape || 'dot', color, 18, '#000'), iconSize: [18,18], iconAnchor: [9,9], className: 'leaflet-div-icon'}); },
+    createMarker(p) {
+      p.marker = L.marker([p.lat, p.lng], {icon: this.markerIcon(p), draggable: true}).addTo(this.map);
+      p.marker.pointId = p.id; p.labels = [];
+      let dragStart = null;
+      p.marker.on('dragstart', () => { dragStart = {lat: p.lat, lng: p.lng}; });
+      p.marker.on('drag', () => { const ll = p.marker.getLatLng(); p.lat = ll.lat; p.lng = ll.lng; this.updateLabels(p); this.redrawSegmentsLight(); SchemaModule.render(); JournalModule.render(); CalcModule.renderSummary(); CalcModule.renderCalc(); CalcModule.renderCableStats(); });
+      p.marker.on('dragend', () => { const ll = p.marker.getLatLng(); if (dragStart) { History.push(new MovePointCmd(p.id, dragStart, {lat: ll.lat, lng: ll.lng})); Storage.saveProject(serializeProject()); } bus.emit('state:full-refresh'); });
+      p.marker.on('click', e => { L.DomEvent.stopPropagation(e); state.selectedPointId = p.id; bus.emit('points:selection-changed'); this.openPointPopup(p); });
+      this.updateLabels(p);
+    },
+    removeMarker(p) { if (p.marker) try { this.map.removeLayer(p.marker); } catch(e){} if (p.labels) p.labels.forEach(l => { try { this.map.removeLayer(l); } catch(e){} }); p.marker = null; p.labels = []; },
+    updateMarkerPosition(p) { if (p.marker) p.marker.setLatLng([p.lat, p.lng]); this.updateLabels(p); this.redrawSegments(); },
+    updateMarkerIcon(p) { if (p.marker) p.marker.setIcon(this.markerIcon(p)); },
+    isVisibleOnMap(k) { return state.filters[k] && !state.filters.schemaOnly[k]; },
+    updateLabels(p) {
+      if (p.labels) p.labels.forEach(l => { try { this.map.removeLayer(l); } catch(e){} });
+      p.labels = [];
+      const cls = state.filters.blackred ? 'map-label red' : 'map-label';
+      if (this.isVisibleOnMap('names')) { const l = L.marker([p.lat, p.lng], {interactive:false, icon:L.divIcon({html:`<div class="${cls}">${Utils.escapeHtml(displayName(p))}</div>`, className:'leaflet-div-icon', iconAnchor:[-10,-8]})}); l.addTo(this.map); p.labels.push(l); }
+      if (this.isVisibleOnMap('notes') && p.note) { const l = L.marker([p.lat, p.lng], {interactive:false, icon:L.divIcon({html:`<div class="${cls}">${Utils.escapeHtml(p.note)}</div>`, className:'leaflet-div-icon', iconAnchor:[-12,2]})}); l.addTo(this.map); p.labels.push(l); }
+      if (this.isVisibleOnMap('coords')) { const l = L.marker([p.lat, p.lng], {interactive:false, icon:L.divIcon({html:`<div class="${cls}">${p.lat.toFixed(5)},${p.lng.toFixed(5)}</div>`, className:'leaflet-div-icon', iconAnchor:[-12,-2]})}); l.addTo(this.map); p.labels.push(l); }
+    },
+    redrawSegmentsLight() { state.segments.forEach(s => { if (!s.poly) return; const pa = pointById(s.a), pb = pointById(s.b); if (pa && pb) s.poly.setLatLngs([[pa.lat, pa.lng],[pb.lat, pb.lng]]); }); },
+    redrawSegments() {
+      state.segments.forEach(s => {
+        if (s.poly) { try { this.map.removeLayer(s.poly); } catch(e){} s.poly = null; }
+        if (s.labels) s.labels.forEach(l => { try { this.map.removeLayer(l); } catch(e){} });
+        s.labels = [];
+        const pa = pointById(s.a), pb = pointById(s.b); if (!pa || !pb) return;
+        const color = state.filters.blackred ? '#000' : (s.color || CAP_COLORS[s.capacity] || '#1e88e5'), dash = LINE_STYLES[s.style] || [];
+        s.poly = L.polyline([[pa.lat,pa.lng],[pb.lat,pb.lng]], {color, weight:2, dashArray:dash.length?dash.join(' '):null, opacity:0.9}).addTo(this.map);
+        s.poly.on('click', e => { L.DomEvent.stopPropagation(e); this.openSegPopup(s); });
+        const midLat = (pa.lat+pb.lat)/2, midLng = (pa.lng+pb.lng)/2, cls = state.filters.blackred ? 'map-label red' : 'map-label';
+        if (this.isVisibleOnMap('capacity')) { const l = L.marker([midLat,midLng], {interactive:false, icon:L.divIcon({html:`<div class="${cls}">${s.capacity}в</div>`, className:'leaflet-div-icon', iconAnchor:[8,-3]})}); l.addTo(this.map); s.labels.push(l); }
+        if (this.isVisibleOnMap('lengths')) { const d = Utils.haversine(pa.lat, pa.lng, pb.lat, pb.lng); const l = L.marker([midLat,midLng], {interactive:false, icon:L.divIcon({html:`<div class="${cls}">${d.toFixed(1)}м</div>`, className:'leaflet-div-icon', iconAnchor:[8,-14]})}); l.addTo(this.map); s.labels.push(l); }
+      });
+    },
+    onMapClick(e) {
+      if (state.clickMode === 'addPoint') { const cmd = new AddPointCmd({lat:e.latlng.lat, lng:e.latlng.lng, name:'', datetime:new Date().toISOString()}); cmd.execute(); History.push(cmd); state.clickMode = null; bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); UI.toast('Точка добавлена', 'success', 1500); } 
+      else if (state.clickMode && state.clickMode.type === 'photo') { const pp = state.clickMode.pending; const cmd = new AddPointCmd({lat:e.latlng.lat, lng:e.latlng.lng, name:pp.name, datetime:pp.datetime, file:pp.name}); cmd.execute(); History.push(cmd); state.clickMode = null; document.getElementById('dz').style.borderColor = ''; bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); }
+    },
+    openPointPopup(p) {
+      const html = `<div><b style="color:#4ea1ff">${Utils.escapeHtml(displayName(p))}</b><div class="hint">${p.lat.toFixed(6)},${p.lng.toFixed(6)}</div><label>Форма</label><select id="pfShape">${SHAPES.map(s=>`<option value="${s}" ${p.shape===s?'selected':''}>${SHAPE_NAMES[s]}</option>`).join('')}</select><label>Цвет</label><div class="row" id="pfColors">${COLORS.map(c=>`<div class="swatch ${c===p.color?'active':''}" data-c="${c}" style="background:${c}"></div>`).join('')}</div><label>Заметка</label><textarea id="pfNote" rows="2">${Utils.escapeHtml(p.note||'')}</textarea><label>Имя</label><input id="pfName" type="text" value="${Utils.escapeHtml(p.name||'')}"><div class="row"><button class="pApply" id="pfApply">OK</button><button class="pReset" id="pfReset">↺</button><button class="pDelete" id="pfDel">✕</button></div></div>`;
+      const popup = L.popup({maxWidth:300, closeButton:true, autoClose:false, closeOnClick:false, closeOnEscapeKey:false}).setLatLng([p.lat, p.lng]).setContent(html).openOn(this.map);
+      setTimeout(() => {
+        const el = popup.getElement(); if (!el) return;
+        L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el);
+        el.querySelectorAll('input,select,textarea,button,.swatch').forEach(n => { L.DomEvent.disableClickPropagation(n); L.DomEvent.disableScrollPropagation(n); });
+        let cc = p.color;
+        el.querySelectorAll('#pfColors .swatch').forEach(sw => { sw.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); el.querySelectorAll('#pfColors .swatch').forEach(x => x.classList.remove('active')); sw.classList.add('active'); cc = sw.dataset.c; }; });
+        el.querySelector('#pfApply').onclick = ev => { ev.preventDefault(); ev.stopPropagation(); const newP = {shape:el.querySelector('#pfShape').value, color:cc, note:el.querySelector('#pfNote').value, name:el.querySelector('#pfName').value}; const oldP = {shape:p.shape, color:p.color, note:p.note, name:p.name}; const cmd = new UpdatePointCmd(p.id, oldP, newP); cmd.execute(); History.push(cmd); bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); };
+        el.querySelector('#pfReset').onclick = ev => { ev.preventDefault(); ev.stopPropagation(); const newP = {shape:'dot', color:COLORS[1], note:'', name:''}; const oldP = {shape:p.shape, color:p.color, note:p.note, name:p.name}; const cmd = new UpdatePointCmd(p.id, oldP, newP); cmd.execute(); History.push(cmd); bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); };
+        el.querySelector('#pfDel').onclick = ev => { ev.preventDefault(); ev.stopPropagation(); try { this.map.closePopup(popup); } catch(e){} const cmd = new RemovePointCmd(p.id); cmd.execute(); History.push(cmd); bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); };
+      }, 10);
+    },
+    openSegPopup(s) {
+      const pa = pointById(s.a), pb = pointById(s.b); if (!pa || !pb) return;
+      const html = `<div><b style="color:#4ea1ff">${Utils.escapeHtml(displayName(pa))}→${Utils.escapeHtml(displayName(pb))}</b><label>Емкость</label><select id="sfCap">${CAPACITIES.map(c=>`<option value="${c}" ${s.capacity===c?'selected':''}>${CAP_NAMES[c]||c}</option>`).join('')}</select><label>Цвет</label><div class="row" id="sfColors"><div class="swatch ${!s.color?'active':''}" data-c="" style="background:#fff;border:1px dashed #888"></div>${COLORS.map(c=>`<div class="swatch ${c===s.color?'active':''}" data-c="${c}" style="background:${c}"></div>`).join('')}</div><label>Стиль</label><select id="sfStyle">${Object.keys(LINE_STYLE_NAMES).map(k=>`<option value="${k}" ${s.style===k?'selected':''}>${LINE_STYLE_NAMES[k]}</option>`).join('')}</select><div class="row"><button class="pApply" id="sfApply">OK</button><button class="pReset" id="sfReset">↺</button></div></div>`;
+      const popup = L.popup({maxWidth:300, closeButton:true, autoClose:false, closeOnClick:false, closeOnEscapeKey:false}).setLatLng([(pa.lat+pb.lat)/2, (pa.lng+pb.lng)/2]).setContent(html).openOn(this.map);
+      setTimeout(() => {
+        const el = popup.getElement(); if (!el) return;
+        L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el);
+        el.querySelectorAll('input,select,textarea,button,.swatch').forEach(n => { L.DomEvent.disableClickPropagation(n); L.DomEvent.disableScrollPropagation(n); });
+        let cc = s.color || '';
+        el.querySelectorAll('#sfColors .swatch').forEach(sw => { sw.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); el.querySelectorAll('#sfColors .swatch').forEach(x => x.classList.remove('active')); sw.classList.add('active'); cc = sw.dataset.c || ''; }; });
+        const segKey = s.a + '-' + s.b;
+        el.querySelector('#sfApply').onclick = ev => { ev.preventDefault(); ev.stopPropagation(); const newP = {capacity:parseInt(el.querySelector('#sfCap').value,10), color:cc||null, style:el.querySelector('#sfStyle').value}; const oldP = {capacity:s.capacity, color:s.color, style:s.style}; const cmd = new UpdateSegmentCmd(segKey, oldP, newP); cmd.execute(); History.push(cmd); bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); };
+        el.querySelector('#sfReset').onclick = ev => { ev.preventDefault(); ev.stopPropagation(); const newP = {capacity:state.defaultCapacity, color:null, style:'solid'}; const oldP = {capacity:s.capacity, color:s.color, style:s.style}; const cmd = new UpdateSegmentCmd(segKey, oldP, newP); cmd.execute(); History.push(cmd); bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); };
+      }, 10);
+    },
+    searchCoords(v) {
+      const m = v.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+      if (m) { const lat = parseFloat(m[1]), lng = parseFloat(m[2]); this.map.setView([lat, lng], 17); if (state.tempMarker) this.map.removeLayer(state.tempMarker); state.tempMarker = L.marker([lat, lng], {icon: this.tmpIcon()}).addTo(this.map); setTimeout(() => { if (state.tempMarker) { this.map.removeLayer(state.tempMarker); state.tempMarker = null; } }, 6000); return true; }
+      return false;
+    },
+    fitBounds() { if (!state.points.length) return; const bounds = L.latLngBounds(state.points.map(p => [p.lat, p.lng])); this.map.fitBounds(bounds.pad(0.2)); },
+    invalidateSize() { try { this.map.invalidateSize(); } catch(e){} }
+  };
+
+  const SegmentsModule = {
+    ordered() {
+      const arr = state.points.slice();
+      if (state.sortMode === 'time') arr.sort((a,b) => (a.datetime||'').localeCompare(b.datetime||''));
+      else if (state.sortMode === 'distance') {
+        if (arr.length < 2) return arr;
+        const used = new Set(), order = []; let cur = arr[0]; used.add(cur.id); order.push(cur);
+        while (order.length < arr.length) { let best = null, bd = Infinity; for (const p of arr) { if (used.has(p.id)) continue; const d = Utils.haversine(cur.lat, cur.lng, p.lat, p.lng); if (d < bd) { bd = d; best = p; } } if (!best) break; used.add(best.id); order.push(best); cur = best; }
+        return order;
+      }
+      return arr;
+    },
+    rebuild() {
+      const order = this.ordered(); const prevKeyMap = {};
+      state.segments.forEach(s => { prevKeyMap[s.a+'-'+s.b] = s; prevKeyMap[s.b+'-'+s.a] = s; });
+      state.segments.forEach(s => { if (s.poly) try { MapModule.map.removeLayer(s.poly); } catch(e){} if (s.labels) s.labels.forEach(l => { try { MapModule.map.removeLayer(l); } catch(e){} }); });
+      const newSegs = [];
+      for (let i = 0; i < order.length - 1; i++) {
+        const a = order[i], b = order[i+1], prev = prevKeyMap[a.id+'-'+b.id];
+        newSegs.push({ a:a.id, b:b.id, capacity: prev ? prev.capacity : state.defaultCapacity, color: prev ? prev.color : null, style: prev ? prev.style : 'solid', poly:null, labels:[] });
+      }
+      state.segments = newSegs; MapModule.redrawSegments();
+    }
+  };
+
+  function pointById(id) { return state.points.find(p => p.id === id); }
+  function displayName(p) { return p.name ? String(p.name).replace(/\.jpe?g$/i, '') : 'Опора '+(state.points.indexOf(p)+1); }
+  function serializeProject() { return { version: APP_VERSION, points: state.points.map(p => ({id:p.id, lat:p.lat, lng:p.lng, name:p.name, shape:p.shape, color:p.color, note:p.note, datetime:p.datetime, file:p.file})), segments: state.segments.map(s => ({a:s.a, b:s.b, capacity:s.capacity, color:s.color, style:s.style})), sortMode: state.sortMode, filters: state.filters, reserve: state.reserve, spliceReserve: state.spliceReserve, defaultCapacity: state.defaultCapacity, globalNotes: state.globalNotes, counter: state.counter, panels: state.panels, basemap: state.basemap }; }
+
+  const PhotoModule = {
+    async handleFiles(files) {
+      if (!files || !files.length) return;
+      const arr = [...files].filter(f => /\.jpe?g$/i.test(f.name)); if (!arr.length) return;
+      const progressBar = document.getElementById('exifProgress'); let done = 0; progressBar.style.width = '0%';
+      for (const f of arr) { try { await this.processOne(f); } catch (e) { await this.askForClick(f); } done++; progressBar.style.width = (done/arr.length*100) + '%'; }
+      setTimeout(() => { progressBar.style.width = '0%'; }, 500);
+    },
+    processOne(f) {
+      return new Promise((resolve, reject) => {
+        if (typeof EXIF === 'undefined') { setTimeout(() => this.processOne(f).then(resolve).catch(reject), 200); return; }
+        EXIF.getData(f, function() {
+          try {
+            let lat=null, lon=null, latRef='N', lonRef='E', dt='';
+            try { lat = EXIF.getTag(this, 'GPSLatitude'); lon = EXIF.getTag(this, 'GPSLongitude'); latRef = EXIF.getTag(this, 'GPSLatitudeRef') || 'N'; lonRef = EXIF.getTag(this, 'GPSLongitudeRef') || 'E'; dt = EXIF.getTag(this, 'DateTimeOriginal') || EXIF.getTag(this, 'DateTime') || ''; } catch(err) {}
+            if (lat && lon && Array.isArray(lat) && Array.isArray(lon) && lat.length === 3 && lon.length === 3) {
+              const la = Utils.dmsToDec(lat, latRef), lo = Utils.dmsToDec(lon, lonRef);
+              if (isFinite(la) && isFinite(lo)) { const cmd = new AddPointCmd({lat:la, lng:lo, name:f.name, datetime:dt, file:f.name}); cmd.execute(); History.push(cmd); if (state.points.length === 1) MapModule.map.setView([la, lo], 16); bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); resolve(); return; }
             }
-            
-            // Поиск адреса через Nominatim API
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data && data.length > 0) {
-                        const result = data[0];
-                        goToLocation(parseFloat(result.lat), parseFloat(result.lon), result.display_name);
-                    } else {
-                        alert('Адрес не найден. Попробуйте другой запрос.');
-                    }
-                })
-                .catch(error => {
-                    console.error('Ошибка поиска:', error);
-                    alert('Ошибка при поиске адреса.');
-                });
-        }
-        
-        // Переход к местоположению
-        function goToLocation(lat, lon, name) {
-            // Удаляем предыдущий маркер поиска
-            if (searchMarker) {
-                map.removeLayer(searchMarker);
-            }
-            
-            // Создаем новый маркер
-            searchMarker = L.marker([lat, lon]).addTo(map)
-                .bindPopup(`<b>📍 ${name}</b><br>Стартовая метка`)
-                .openPopup();
-            
-            // Центрируем карту
-            map.setView([lat, lon], 16);
-            
-            // Добавляем как первую точку если нужно
-            if (confirm('Добавить эту точку как начало трассы?')) {
-                const fileName = prompt('Введите имя точки (например, "Опора 1" или "КРН Начало"):', 'Точка поиска');
-                if (fileName) {
-                    addPoint({
-                        latitude: lat,
-                        longitude: lon,
-                        dateTime: new Date(),
-                        fileName: fileName
-                    });
-                    updateMap();
-                    updateScheme();
-                    updateStats();
-                }
-            }
-        }
-
-        // Кастомные иконки для маркеров
-        function setupCustomIcons() {
-            window.customPointIcon = L.divIcon({
-                className: 'custom-marker',
-                iconSize: [20, 20],
-                iconAnchor: [10, 10]
-            });
-
-            window.customBuildingIcon = L.divIcon({
-                className: 'building-marker',
-                iconSize: [24, 24],
-                iconAnchor: [12, 12]
-            });
-        }
-
-        // ============================================
-        // ОБРАБОТКА EXIF ДАННЫХ
-        // ============================================
-        function extractEXIF(file) {
-            return new Promise((resolve, reject) => {
-                EXIF.getData(file, function() {
-                    const exifData = {
-                        latitude: null,
-                        longitude: null,
-                        dateTime: null,
-                        fileName: file.name.replace(/\.[^/.]+$/, "")
-                    };
-
-                    // Получаем GPS координаты
-                    const lat = EXIF.getTag(this, "GPSLatitude");
-                    const lon = EXIF.getTag(this, "GPSLongitude");
-                    const latRef = EXIF.getTag(this, "GPSLatitudeRef");
-                    const lonRef = EXIF.getTag(this, "GPSLongitudeRef");
-
-                    if (lat && lon) {
-                        exifData.latitude = convertGPSToDecimal(lat, latRef || 'N');
-                        exifData.longitude = convertGPSToDecimal(lon, lonRef || 'E');
-                    }
-
-                    // Получаем дату съемки
-                    const dateTime = EXIF.getTag(this, "DateTimeOriginal");
-                    if (dateTime) {
-                        exifData.dateTime = parseEXIFDate(dateTime);
-                    } else {
-                        // Если нет DateTimeOriginal, используем дату файла
-                        exifData.dateTime = file.lastModified ? new Date(file.lastModified) : new Date();
-                    }
-
-                    resolve(exifData);
-                });
-            });
-        }
-
-        // Конвертация GPS из формата EXIF в десятичный
-        function convertGPSToDecimal(coord, ref) {
-            if (!coord || coord.length < 3) return null;
-            
-            let decimal = coord[0] + coord[1] / 60 + coord[2] / 3600;
-            
-            if (ref === 'S' || ref === 'W') {
-                decimal = -decimal;
-            }
-            
-            return decimal;
-        }
-
-        // Парсинг даты из EXIF
-        function parseEXIFDate(dateString) {
-            // Формат EXIF: "YYYY:MM:DD HH:MM:SS"
-            const parts = dateString.split(' ');
-            const dateParts = parts[0].split(':');
-            const timeParts = parts[1] ? parts[1].split(':') : ['00', '00', '00'];
-            
-            return new Date(
-                parseInt(dateParts[0]),
-                parseInt(dateParts[1]) - 1,
-                parseInt(dateParts[2]),
-                parseInt(timeParts[0]),
-                parseInt(timeParts[1]),
-                parseInt(timeParts[2])
-            );
-        }
-
-        // ============================================
-        // ОБРАБОТКА ЗАГРУЖЕННЫХ ФОТО
-        // ============================================
-        async function handleFiles(files) {
-            const fileArray = Array.from(files);
-            
-            for (const file of fileArray) {
-                if (!file.type.startsWith('image/')) continue;
-                
-                try {
-                    const exifData = await extractEXIF(file);
-                    
-                    if (exifData.latitude && exifData.longitude) {
-                        addPoint(exifData);
-                    } else {
-                        // Нет GPS данных - просим указать вручную
-                        console.warn(`В файле ${file.name} нет геотега.`);
-                        alert(`В файле "${file.name}" нет GPS-координат.\n\nУкажите местоположение этой точки вручную:\n1. Найдите адрес в поиске сверху\n2. Или кликните на карту для добавления точки`);
-                        
-                        // Добавляем точку без координат для последующего ручного указания
-                        const fileName = prompt(`Введите имя для точки из файла "${file.name}":`, exifData.fileName);
-                        if (fileName) {
-                            // Сохраняем для ручного добавления
-                            window.pendingPoint = {
-                                fileName: fileName,
-                                dateTime: exifData.dateTime,
-                                isBuilding: fileName.includes('УС') || fileName.includes('Клиент')
-                            };
-                            
-                            // Включаем режим клика для добавления
-                            enableClickToAddMode();
-                        }
-                    }
-                } catch (error) {
-                    console.error(`Ошибка обработки файла ${file.name}:`, error);
-                    alert(`Ошибка обработки файла ${file.name}: ${error.message}`);
-                }
-            }
-            
-            updateMap();
-            updateScheme();
-            updateStats();
-        }
-        
-        // Режим добавления точки по клику на карту
-        let clickToAddMode = false;
-        
-        function enableClickToAddMode() {
-            if (!window.pendingPoint) return;
-            
-            clickToAddMode = true;
-            map.getContainer().style.cursor = 'crosshair';
-            alert('Режим добавления точки: Кликните на карту чтобы указать местоположение');
-            
-            map.once('click', function(e) {
-                if (window.pendingPoint) {
-                    window.pendingPoint.latitude = e.latlng.lat;
-                    window.pendingPoint.longitude = e.latlng.lng;
-                    addPoint(window.pendingPoint);
-                    window.pendingPoint = null;
-                    clickToAddMode = false;
-                    map.getContainer().style.cursor = '';
-                    updateMap();
-                    updateScheme();
-                    updateStats();
-                }
-            });
-        }
-
-        // ============================================
-        // ДОБАВЛЕНИЕ ТОЧКИ
-        // ============================================
-        function addPoint(data) {
-            const point = {
-                id: Date.now() + Math.random(),
-                latitude: data.latitude,
-                longitude: data.longitude,
-                dateTime: data.dateTime,
-                name: data.fileName,
-                isBuilding: data.fileName.includes('УС') || data.fileName.includes('Клиент')
-            };
-            
-            points.push(point);
-            updatePointsList();
-        }
-
-        // ============================================
-        // СОРТИРОВКА ТОЧЕК
-        // ============================================
-        function sortPoints() {
-            if (sortMode === 'time') {
-                // Сортировка по времени
-                points.sort((a, b) => a.dateTime - b.dateTime);
-            } else {
-                // Сортировка по ближайшему соседу
-                sortByNearestNeighbor();
-            }
-        }
-
-        // Алгоритм ближайшего соседа
-        function sortByNearestNeighbor() {
-            if (points.length <= 1) return;
-            
-            const sorted = [points[0]];
-            const remaining = points.slice(1);
-            
-            while (remaining.length > 0) {
-                const lastPoint = sorted[sorted.length - 1];
-                let nearestIndex = 0;
-                let nearestDistance = Infinity;
-                
-                for (let i = 0; i < remaining.length; i++) {
-                    const distance = calculateDistance(
-                        lastPoint.latitude, lastPoint.longitude,
-                        remaining[i].latitude, remaining[i].longitude
-                    );
-                    
-                    // Лимит 150м между опорами
-                    if (distance < nearestDistance && distance <= 150) {
-                        nearestDistance = distance;
-                        nearestIndex = i;
-                    }
-                }
-                
-                // Если не нашли в пределах 150м, берем ближайший без ограничений
-                if (nearestDistance === Infinity) {
-                    for (let i = 0; i < remaining.length; i++) {
-                        const distance = calculateDistance(
-                            lastPoint.latitude, lastPoint.longitude,
-                            remaining[i].latitude, remaining[i].longitude
-                        );
-                        
-                        if (distance < nearestDistance) {
-                            nearestDistance = distance;
-                            nearestIndex = i;
-                        }
-                    }
-                }
-                
-                sorted.push(remaining[nearestIndex]);
-                remaining.splice(nearestIndex, 1);
-            }
-            
-            points = sorted;
-        }
-
-        // ============================================
-        // ФОРМУЛА ГАВЕРСИНУСОВ
-        // ============================================
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371000; // Радиус Земли в метрах
-            const dLat = toRad(lat2 - lat1);
-            const dLon = toRad(lon2 - lon1);
-            
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
-        function toRad(deg) {
-            return deg * Math.PI / 180;
-        }
-
-        // ============================================
-        // ОТРИСОВКА НА КАРТЕ
-        // ============================================
-        function updateMap() {
-            // Очищаем карту
-            markers.forEach(m => map.removeLayer(m));
-            polylines.forEach(p => map.removeLayer(p));
-            distanceLabels.forEach(l => map.removeLayer(l));
-            
-            markers = [];
-            polylines = [];
-            distanceLabels = [];
-            
-            if (points.length === 0) return;
-            
-            // Сортируем точки
-            sortPoints();
-            
-            // Добавляем маркеры с попапами для комментариев
-            points.forEach((point, index) => {
-                const icon = point.isBuilding ? window.customBuildingIcon : window.customPointIcon;
-                
-                // Определяем тип точки для флага
-                const isFirst = index === 0;
-                const isLast = index === points.length - 1;
-                let popupContent = `<div class="marker-label"><strong>${point.name}</strong></div>`;
-                
-                if (isFirst) {
-                    popupContent += `<div style="color: green; font-weight: bold; margin-top: 5px;">🚩 Начало трассы (А)</div>`;
-                } else if (isLast) {
-                    popupContent += `<div style="color: red; font-weight: bold; margin-top: 5px;">🏁 Конец трассы (Я)</div>`;
-                }
-                
-                // Добавляем поле для комментария
-                popupContent += `
-                    <div style="margin-top: 10px;">
-                        <label style="font-size: 11px; display: block; margin-bottom: 3px;">Комментарий:</label>
-                        <textarea id="comment-${point.id}" style="width: 200px; height: 60px; font-size: 12px;" 
-                                  placeholder="Введите комментарий...">${point.comment || ''}</textarea>
-                        <button onclick="savePointComment(${point.id})" style="margin-top: 5px; padding: 5px 10px; background: #3498db; color: white; border: none; border-radius: 3px; cursor: pointer;">Сохранить</button>
-                    </div>
-                `;
-                
-                const marker = L.marker([point.latitude, point.longitude], { icon: icon })
-                    .addTo(map)
-                    .bindPopup(popupContent);
-                
-                markers.push(marker);
-                
-                // Добавляем постоянную подпись с именем
-                let labelText = point.name;
-                if (isFirst) labelText = '🚩 А: ' + point.name;
-                if (isLast) labelText = '🏁 Я: ' + point.name;
-                
-                const label = L.marker([point.latitude, point.longitude], {
-                    icon: L.divIcon({
-                        className: 'marker-label',
-                        html: labelText,
-                        iconSize: [labelText.length * 8 + 10, 25],
-                        iconAnchor: [labelText.length * 4 + 5, -25]
-                    })
-                }).addTo(map);
-                
-                markers.push(label);
-            });
-            
-            // Рисуем линии между точками
-            for (let i = 0; i < points.length - 1; i++) {
-                const p1 = points[i];
-                const p2 = points[i + 1];
-                
-                // Полилиния
-                const polyline = L.polyline([[p1.latitude, p1.longitude], [p2.latitude, p2.longitude]], {
-                    color: CABLE_COLORS[selectedCapacity],
-                    weight: 4,
-                    opacity: 0.8
-                }).addTo(map);
-                
-                polylines.push(polyline);
-                
-                // Расчет расстояния
-                const distance = calculateDistance(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
-                
-                // Средняя точка для подписи
-                const midLat = (p1.latitude + p2.latitude) / 2;
-                const midLon = (p1.longitude + p2.longitude) / 2;
-                
-                // Подпись расстояния
-                const label = L.marker([midLat, midLon], {
-                    icon: L.divIcon({
-                        className: 'distance-label',
-                        html: `Lфиз = ${distance.toFixed(1)} м`,
-                        iconSize: [120, 25],
-                        iconAnchor: [60, 12]
-                    })
-                }).addTo(map);
-                
-                distanceLabels.push(label);
-            }
-            
-            // Центрируем карту на всех точках
-            if (markers.length > 0) {
-                const group = new L.featureGroup(markers.filter(m => m instanceof L.Marker && !m.options.icon.options.className?.includes('label')));
-                map.fitBounds(group.getBounds().pad(0.1));
-            }
-        }
-        
-        // Сохранение комментария для точки
-        window.savePointComment = function(pointId) {
-            const commentEl = document.getElementById(`comment-${pointId}`);
-            if (commentEl) {
-                const point = points.find(p => p.id === pointId);
-                if (point) {
-                    point.comment = commentEl.value;
-                    alert('Комментарий сохранен!');
-                    updateScheme(); // Обновляем схему с новым комментарием
-                }
-            }
-        };
-
-        // ============================================
-        // ОТРИСОВКА СТРУКТУРНОЙ СХЕМЫ
-        // ============================================
-        function updateScheme() {
-            const canvas = document.getElementById('scheme-canvas');
-            const ctx = canvas.getContext('2d');
-            
-            if (points.length === 0) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                return;
-            }
-            
-            // Настраиваем размер canvas
-            const blockWidth = 120;
-            const blockHeight = 80;
-            const spacing = 80;
-            const totalWidth = points.length * (blockWidth + spacing) + 100;
-            
-            canvas.width = Math.max(totalWidth, 800);
-            canvas.height = 300; // Увеличили высоту для особых отметок
-            
-            // Очищаем canvas
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Сначала рисуем особые отметки (красный текст поверх всего)
-            const specialNotes = document.getElementById('specialNotes').value;
-            if (specialNotes) {
-                ctx.fillStyle = '#e74c3c';
-                ctx.font = 'bold 20px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(specialNotes, canvas.width / 2, 35);
-            }
-            
-            // Рисуем блоки
-            points.forEach((point, index) => {
-                const x = 50 + index * (blockWidth + spacing);
-                const y = 100; // Сдвинули вниз из-за особых отметок
-                
-                // Определяем тип блока - также учитываем УС
-                const isTerminal = index === 0 || index === points.length - 1 || 
-                                  point.name.includes('КРН') || point.name.includes('КРС') ||
-                                  point.name.includes('УС');
-                const isJoint = point.name.includes('ОМ') || point.name.includes('Муфта');
-                
-                if (isTerminal) {
-                    // Прямоугольник для терминальных точек
-                    ctx.fillStyle = '#3498db';
-                    ctx.fillRect(x, y, blockWidth, blockHeight);
-                    
-                    // Текст имени
-                    ctx.fillStyle = 'white';
-                    ctx.font = 'bold 13px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(point.name, x + blockWidth / 2, y + blockHeight / 2 + 5);
-                    
-                    // Флаги начала/конца
-                    if (index === 0) {
-                        ctx.fillStyle = '#2ecc71';
-                        ctx.font = 'bold 11px Arial';
-                        ctx.fillText('🚩 НАЧАЛО (А)', x + blockWidth / 2, y - 10);
-                    } else if (index === points.length - 1) {
-                        ctx.fillStyle = '#e74c3c';
-                        ctx.font = 'bold 11px Arial';
-                        ctx.fillText('🏁 КОНЕЦ (Я)', x + blockWidth / 2, y - 10);
-                    }
-                } else if (isJoint) {
-                    // Круг для муфт
-                    ctx.beginPath();
-                    ctx.arc(x + blockWidth / 2, y + blockHeight / 2, blockHeight / 2, 0, Math.PI * 2);
-                    ctx.fillStyle = '#9b59b6';
-                    ctx.fill();
-                    
-                    // Текст
-                    ctx.fillStyle = 'white';
-                    ctx.font = 'bold 12px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(point.name, x + blockWidth / 2, y + blockHeight / 2 + 5);
-                } else {
-                    // Обычная опора - прямоугольник со скругленными углами
-                    roundRect(ctx, x, y, blockWidth, blockHeight, 10, '#2ecc71', true);
-                    
-                    // Текст
-                    ctx.fillStyle = 'white';
-                    ctx.font = 'bold 12px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(point.name, x + blockWidth / 2, y + blockHeight / 2 + 5);
-                }
-                
-                // Рисуем соединительные линии и подписи
-                if (index < points.length - 1) {
-                    const nextPoint = points[index + 1];
-                    const distance = calculateDistance(
-                        point.latitude, point.longitude,
-                        nextPoint.latitude, nextPoint.longitude
-                    );
-                    
-                    // Линия
-                    ctx.beginPath();
-                    ctx.moveTo(x + blockWidth, y + blockHeight / 2);
-                    ctx.lineTo(x + blockWidth + spacing, y + blockHeight / 2);
-                    ctx.strokeStyle = CABLE_COLORS[selectedCapacity];
-                    ctx.lineWidth = 3;
-                    ctx.stroke();
-                    
-                    // Подпись кабеля и расстояния
-                    ctx.fillStyle = CABLE_COLORS[selectedCapacity];
-                    ctx.font = 'bold 11px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(CABLE_NAMES[selectedCapacity], x + blockWidth + spacing / 2, y + blockHeight / 2 - 15);
-                    ctx.fillText(`Lфиз = ${distance.toFixed(1)} м`, x + blockWidth + spacing / 2, y + blockHeight / 2 + 30);
-                    
-                    // Комментарий точки если есть
-                    if (nextPoint.comment) {
-                        ctx.fillStyle = '#7f8c8d';
-                        ctx.font = 'italic 10px Arial';
-                        ctx.fillText(nextPoint.comment, x + blockWidth + spacing / 2, y + blockHeight / 2 + 50);
-                    }
-                }
-            });
-        }
-
-        // Вспомогательная функция для рисования скругленных прямоугольников
-        function roundRect(ctx, x, y, width, height, radius, fillStyle, fill) {
-            ctx.beginPath();
-            ctx.moveTo(x + radius, y);
-            ctx.lineTo(x + width - radius, y);
-            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-            ctx.lineTo(x + width, y + height - radius);
-            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-            ctx.lineTo(x + radius, y + height);
-            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-            ctx.lineTo(x, y + radius);
-            ctx.quadraticCurveTo(x, y, x + radius, y);
-            ctx.closePath();
-            
-            if (fill) {
-                ctx.fillStyle = fillStyle;
-                ctx.fill();
-            }
-        }
-
-        // ============================================
-        // ОБНОВЛЕНИЕ СТАТИСТИКИ
-        // ============================================
-        function updateStats() {
-            let totalLength = 0;
-            
-            for (let i = 0; i < points.length - 1; i++) {
-                totalLength += calculateDistance(
-                    points[i].latitude, points[i].longitude,
-                    points[i + 1].latitude, points[i + 1].longitude
-                );
-            }
-            
-            const totalWithReserve = totalLength * 1.1;
-            const avgSpan = points.length > 1 ? totalLength / (points.length - 1) : 0;
-            
-            document.getElementById('totalLength').textContent = `${totalLength.toFixed(1)} м`;
-            document.getElementById('totalWithReserve').textContent = `${totalWithReserve.toFixed(1)} м`;
-            document.getElementById('polesCount').textContent = points.length;
-            document.getElementById('avgSpan').textContent = `${avgSpan.toFixed(1)} м`;
-            document.getElementById('cableType').textContent = CABLE_NAMES[selectedCapacity];
-        }
-
-        // ============================================
-        // ОБНОВЛЕНИЕ СПИСКА ТОЧЕК
-        // ============================================
-        function updatePointsList() {
-            const list = document.getElementById('pointsList');
-            document.getElementById('pointsCount').textContent = points.length;
-            
-            list.innerHTML = points.map((point, index) => `
-                <div class="point-item">
-                    ${index + 1}. ${point.name} (${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)})
-                </div>
-            `).join('');
-        }
-
-        // ============================================
-        // ЭКСПОРТ СХЕМЫ
-        // ============================================
-        async function exportScheme() {
-            const exportBtn = document.getElementById('exportBtn');
-            exportBtn.textContent = '⏳ Генерация...';
-            exportBtn.disabled = true;
-            
-            try {
-                // Создаем временный контейнер для экспорта
-                const exportContainer = document.createElement('div');
-                exportContainer.style.cssText = `
-                    position: fixed;
-                    top: -9999px;
-                    left: -9999px;
-                    background: white;
-                    padding: 20px;
-                    z-index: 10000;
-                `;
-                
-                // Заголовок
-                const title = document.createElement('h2');
-                title.textContent = document.getElementById('projectName').value || 'Проект ВОЛС';
-                title.style.cssText = 'color: #2c3e50; margin-bottom: 10px; font-size: 24px;';
-                exportContainer.appendChild(title);
-                
-                // Особые отметки
-                const specialNotes = document.getElementById('specialNotes').value;
-                if (specialNotes) {
-                    const notes = document.createElement('div');
-                    notes.textContent = specialNotes;
-                    notes.style.cssText = 'color: #e74c3c; font-weight: bold; font-size: 16px; margin-bottom: 15px;';
-                    exportContainer.appendChild(notes);
-                }
-                
-                // Карта (скриншот)
-                const mapDiv = document.getElementById('map');
-                const mapCanvas = await html2canvas(mapDiv, {
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: '#ffffff'
-                });
-                mapCanvas.style.cssText = 'border: 2px solid #2c3e50; margin-bottom: 20px;';
-                exportContainer.appendChild(mapCanvas);
-                
-                // Структурная схема
-                const schemeCanvas = document.getElementById('scheme-canvas');
-                const schemeCopy = schemeCanvas.cloneNode();
-                schemeCopy.style.cssText = 'border: 2px solid #2c3e50; margin-bottom: 20px;';
-                exportContainer.appendChild(schemeCopy);
-                
-                // Статистика
-                const statsDiv = document.createElement('div');
-                statsDiv.style.cssText = 'background: #f8f9fa; padding: 15px; border-radius: 8px;';
-                statsDiv.innerHTML = `
-                    <h3 style="color: #2c3e50; margin-bottom: 10px;">📈 Сводка по проекту</h3>
-                    <p><strong>Общая длина трассы:</strong> ${document.getElementById('totalLength').textContent}</p>
-                    <p><strong>С запасом 10%:</strong> ${document.getElementById('totalWithReserve').textContent}</p>
-                    <p><strong>Количество опор:</strong> ${document.getElementById('polesCount').textContent}</p>
-                    <p><strong>Средний пролет:</strong> ${document.getElementById('avgSpan').textContent}</p>
-                    <p><strong>Кабель:</strong> ${document.getElementById('cableType').textContent}</p>
-                `;
-                exportContainer.appendChild(statsDiv);
-                
-                document.body.appendChild(exportContainer);
-                
-                // Генерируем итоговое изображение
-                const finalCanvas = await html2canvas(exportContainer, {
-                    scale: 2,
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: '#ffffff'
-                });
-                
-                // Скачиваем
-                const link = document.createElement('a');
-                link.download = `ВОЛС_Схема_${new Date().toISOString().slice(0,10)}.png`;
-                link.href = finalCanvas.toDataURL('image/png');
-                link.click();
-                
-                // Удаляем временный контейнер
-                document.body.removeChild(exportContainer);
-                
-            } catch (error) {
-                console.error('Ошибка экспорта:', error);
-                alert('Ошибка при экспорте схемы. Пожалуйста, попробуйте еще раз.');
-            } finally {
-                exportBtn.textContent = '💾 Скачать исполнительную схему';
-                exportBtn.disabled = false;
-            }
-        }
-
-        // ============================================
-        // ОЧИСТКА ВСЕХ ДАННЫХ
-        // ============================================
-        function clearAll() {
-            if (!confirm('Вы уверены, что хотите очистить все данные?')) return;
-            
-            points = [];
-            markers.forEach(m => map.removeLayer(m));
-            polylines.forEach(p => map.removeLayer(p));
-            distanceLabels.forEach(l => map.removeLayer(l));
-            
-            markers = [];
-            polylines = [];
-            distanceLabels = [];
-            
-            updateMap();
-            updateScheme();
-            updateStats();
-            updatePointsList();
-        }
-
-        // ============================================
-        // ОБРАБОТЧИКИ СОБЫТИЙ
-        // ============================================
-        document.addEventListener('DOMContentLoaded', () => {
-            // Инициализация карты
-            initMap();
-            
-            // Обработка Drag-and-Drop
-            const dropZone = document.getElementById('dropZone');
-            const fileInput = document.getElementById('fileInput');
-            
-            dropZone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                dropZone.classList.add('dragover');
-            });
-            
-            dropZone.addEventListener('dragleave', () => {
-                dropZone.classList.remove('dragover');
-            });
-            
-            dropZone.addEventListener('drop', (e) => {
-                e.preventDefault();
-                dropZone.classList.remove('dragover');
-                handleFiles(e.dataTransfer.files);
-            });
-            
-            dropZone.addEventListener('click', () => {
-                fileInput.click();
-            });
-            
-            fileInput.addEventListener('change', (e) => {
-                handleFiles(e.target.files);
-                fileInput.value = ''; // Сброс для повторной загрузки тех же файлов
-            });
-            
-            // Выбор емкости кабеля
-            document.querySelectorAll('.cable-option').forEach(option => {
-                option.addEventListener('click', () => {
-                    document.querySelectorAll('.cable-option').forEach(o => o.classList.remove('active'));
-                    option.classList.add('active');
-                    selectedCapacity = parseInt(option.dataset.capacity);
-                    updateMap();
-                    updateScheme();
-                    updateStats();
-                });
-            });
-            
-            // Переключение режима сортировки
-            document.querySelectorAll('.sort-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    sortMode = btn.dataset.sort;
-                    updateMap();
-                    updateScheme();
-                });
-            });
-            
-            // Обновление схемы при изменении особых отметок
-            document.getElementById('specialNotes').addEventListener('input', updateScheme);
-            
-            // Экспорт
-            document.getElementById('exportBtn').addEventListener('click', exportScheme);
-            
-            // Очистка
-            document.getElementById('clearBtn').addEventListener('click', clearAll);
-            
-            // Начальное обновление статистики
-            updateStats();
+            PhotoModule.askForClick(f).then(resolve).catch(reject);
+          } catch(err) { reject(err); }
         });
-    </script>
+      });
+    },
+    async askForClick(f) { UI.show('Нет геотега', `В файле <b>${Utils.escapeHtml(f.name)}</b> нет геотега.<br>Укажите его местоположение на карте кликом.`, [{label:'Понятно', primary:true}]); state.clickMode = {type:'photo', pending:{name:f.name, datetime:''}}; document.getElementById('dz').style.borderColor = '#4ea1ff'; }
+  };
+
+  const KMLModule = {
+    async parse(file) {
+      const text = await file.text(); const parser = new DOMParser(); const doc = parser.parseFromString(text, 'text/xml');
+      if (doc.querySelector('parsererror')) throw new Error('Некорректный KML файл');
+      const points = [];
+      for (const pm of doc.getElementsByTagName('Placemark')) {
+        const nameNode = pm.getElementsByTagName('name')[0], descNode = pm.getElementsByTagName('description')[0];
+        const name = nameNode ? nameNode.textContent.trim() : '', note = descNode ? descNode.textContent.trim() : '';
+        const pointNode = pm.getElementsByTagName('Point')[0];
+        if (pointNode) { const coords = pointNode.getElementsByTagName('coordinates')[0]; if (coords) { const parts = coords.textContent.trim().split(','); const lng = parseFloat(parts[0]), lat = parseFloat(parts[1]); if (isFinite(lat) && isFinite(lng)) points.push({lat, lng, name, note, datetime:''}); } }
+        const lineNode = pm.getElementsByTagName('LineString')[0];
+        if (lineNode) { const coords = lineNode.getElementsByTagName('coordinates')[0]; if (coords) { coords.textContent.trim().split(/\s+/).forEach((pair, idx) => { const parts = pair.split(','); const lng = parseFloat(parts[0]), lat = parseFloat(parts[1]); if (isFinite(lat) && isFinite(lng)) points.push({lat, lng, name: name ? `${name} #${idx+1}` : '', note, datetime:''}); }); } }
+      }
+      return points;
+    },
+    generate() {
+      const placemarks = [];
+      state.points.forEach((p, i) => {
+        const name = Utils.escapeXml(displayName(p));
+        const desc = Utils.escapeXml([`Тип: ${SHAPE_NAMES[p.shape] || p.shape}`, p.note ? `Заметка: ${p.note}` : '', `Координаты: ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`, p.datetime ? `Дата съёмки: ${p.datetime}` : ''].filter(x => x).join('<br/>'));
+        placemarks.push(`<Placemark><name>${name}</name><description><![CDATA[${desc}]]></description><styleUrl>#point-style-${i === 0 ? 'start' : (i === state.points.length-1 ? 'end' : 'mid')}</styleUrl><Point><coordinates>${p.lng.toFixed(6)},${p.lat.toFixed(6)},0</coordinates></Point></Placemark>`);
+      });
+      if (state.segments.length > 0) {
+        const order = SegmentsModule.ordered(); const coords = order.map(p => `${p.lng.toFixed(6)},${p.lat.toFixed(6)},0`).join('\n          ');
+        const desc = Utils.escapeXml([`Точек: ${state.points.length}`, `Физ.длина: ${CalcModule.totalPhys().toFixed(1)} м`, `С запасом: ${CalcModule.totalCable().toFixed(1)} м`].join('<br/>'));
+        placemarks.push(`<Placemark><name>Трасса ВОЛС</name><description><![CDATA[${desc}]]></description><styleUrl>#route-style</styleUrl><LineString><tessellate>1</tessellate><coordinates>\n          ${coords}\n        </coordinates></LineString></Placemark>`);
+      }
+      return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>ВОЛС · ${new Date().toLocaleString('ru-RU')}</name><Style id="point-style-start"><IconStyle><color>ff00ff00</color><scale>1.2</scale></IconStyle></Style><Style id="point-style-end"><IconStyle><color>ff0000ff</color><scale>1.2</scale></IconStyle></Style><Style id="point-style-mid"><IconStyle><color>ffffaa00</color><scale>1.0</scale></IconStyle></Style><Style id="route-style"><LineStyle><color>ff0066ff</color><width>3</width></LineStyle></Style><Folder><name>Точки и трасса</name>${placemarks.join('\n')}</Folder></Document></kml>`;
+    },
+    export() { if (!state.points.length) { UI.toast('Нет точек для экспорта', 'info'); return; } const kml = this.generate(); const blob = new Blob([kml], {type: 'application/vnd.google-earth.kml+xml;charset=utf-8'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'vols_route_' + Date.now() + '.kml'; a.click(); URL.revokeObjectURL(a.href); UI.toast('KML экспортирован', 'success'); },
+    async import(file) {
+      try {
+        const points = await this.parse(file); if (!points.length) { UI.toast('В файле не найдено точек', 'error'); return; }
+        const ok = await UI.confirm('Импорт KML', `Найдено <b>${points.length}</b> точек.<br>Добавить к текущему проекту?`); if (!ok) return;
+        const cmd = new AddBatchPointsCmd(points); cmd.execute(); History.push(cmd); bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); MapModule.fitBounds(); UI.toast(`Импортировано ${points.length} точек`, 'success');
+      } catch(err) { UI.toast('Ошибка импорта KML: ' + err.message, 'error', 5000); }
+    }
+  };
+
+  const SchemaModule = {
+    render() {
+      const canvas = document.getElementById('schema'), ctx = canvas.getContext('2d');
+      const W=1122, ROW_H=130, CELL_W=105, MAX=8, PAD=30;
+      const order = SegmentsModule.ordered(), rows = Math.max(1, Math.ceil(order.length/MAX) || 1);
+      const notes = state.globalNotes ? state.globalNotes.split('\n').filter(x => x.trim()) : [];
+      const showSum = state.filters.summary || state.filters.schemaOnly.summary;
+      const H = 70 + rows*ROW_H + (showSum?25:0) + (notes.length?14+notes.length*18:0) + PAD;
+      canvas.width = W; canvas.height = Math.max(350, H);
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, canvas.height);
+      ctx.fillStyle = '#111'; ctx.font = 'bold 14px system-ui'; ctx.fillText('Схема трассы ВОЛС (А4)', 16, 20);
+      ctx.font = '10px system-ui'; ctx.fillStyle = '#555'; ctx.fillText(new Date().toLocaleString('ru-RU') + ' | ' + (CAP_NAMES[state.defaultCapacity]||state.defaultCapacity+'в'), 16, 34);
+      const sx = 50, sy = 60, pos = {};
+      order.forEach((p, i) => { const r = Math.floor(i/MAX); let c = i%MAX; const n = (r === rows-1) ? (order.length - r*MAX) : MAX; if (r%2 === 1) c = n-1-c; pos[p.id] = {x:sx+c*CELL_W, y:sy+r*ROW_H+25, row:r, col:c, n}; });
+      state.segments.forEach(s => {
+        const a = pos[s.a], b = pos[s.b]; if (!a || !b) return;
+        ctx.strokeStyle = state.filters.blackred ? '#000' : (s.color || CAP_COLORS[s.capacity] || '#1e88e5'); ctx.lineWidth = 1.5; ctx.setLineDash(LINE_STYLES[s.style] || []);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y);
+        if (a.row !== b.row) { const ex = (a.row%2===0) ? sx+(a.n-1)*CELL_W+25 : sx-25; ctx.lineTo(ex, a.y); ctx.lineTo(ex, b.y); ctx.lineTo(b.x, b.y); } else ctx.lineTo(b.x, b.y);
+        ctx.stroke(); ctx.setLineDash([]);
+        const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+        if (state.filters.capacity) this.drawLbl(ctx, s.capacity+'в', mx, my-5, state.filters.textbg, state.filters.blackred, true, 9);
+        if (state.filters.lengths) { const pa = pointById(s.a), pb = pointById(s.b); const d = Utils.haversine(pa.lat, pa.lng, pb.lat, pb.lng); this.drawLbl(ctx, d.toFixed(0)+'м', mx, my+9, state.filters.textbg, state.filters.blackred, true, 9); }
+      });
+      order.forEach((p, i) => {
+        const ps = pos[p.id], col = state.filters.blackred ? '#000' : (p.color || COLORS[1]);
+        this.drawShp(ctx, p.shape, ps.x, ps.y, col, 6);
+        this.drawLbl(ctx, '#'+(i+1), ps.x, ps.y-22, state.filters.textbg, state.filters.blackred, true, 8);
+        if (state.filters.names) this.drawLbl(ctx, this.wrapT(displayName(p), 12), ps.x, ps.y-12, state.filters.textbg, state.filters.blackred, true, 9);
+        let bl = 14;
+        if (state.filters.notes && p.note) { this.drawLbl(ctx, this.wrapT(p.note, 12), ps.x, ps.y+bl, state.filters.textbg, state.filters.blackred, true, 8); bl += 10; }
+        if (state.filters.coords) { this.drawLbl(ctx, p.lat.toFixed(3)+','+p.lng.toFixed(3), ps.x, ps.y+bl, state.filters.textbg, state.filters.blackred, true, 7); bl += 9; }
+        if (i === 0 && order.length > 1) { this.drawLbl(ctx, 'А', ps.x, ps.y+bl+1, state.filters.textbg, state.filters.blackred, true, 8); bl += 10; }
+        if (i === order.length-1 && order.length > 1) this.drawLbl(ctx, 'Я', ps.x, ps.y+bl+1, state.filters.textbg, state.filters.blackred, true, 8);
+      });
+      let cy = 70 + rows*ROW_H + 4;
+      if (showSum) { const ln = CalcModule.summaryText(); ctx.font = '10px system-ui'; const w = ctx.measureText(ln).width + 16; if (state.filters.textbg) { ctx.fillStyle = '#fff7cc'; ctx.fillRect(14, cy, w, 16); } ctx.fillStyle = state.filters.blackred ? '#e11b1b' : '#111'; ctx.fillText(ln, 20, cy+12); cy += 20; }
+      if (notes.length) { cy += 4; ctx.fillStyle = '#e11b1b'; ctx.font = 'bold 14px system-ui'; notes.forEach((l, i) => ctx.fillText(l, 20, cy + i*18 + 12)); }
+    },
+    drawShp(c, s, x, y, col, r) { c.fillStyle = col; c.strokeStyle = '#000'; c.lineWidth = 1; c.beginPath(); switch(s) { case 'dot': c.arc(x,y,r,0,Math.PI*2); break; case 'triangle': c.moveTo(x,y-r); c.lineTo(x+r,y+r); c.lineTo(x-r,y+r); c.closePath(); break; case 'circle': c.arc(x,y,r,0,Math.PI*2); break; case 'square': c.rect(x-r,y-r,r*2,r*2); break; case 'diamond': c.moveTo(x,y-r); c.lineTo(x+r,y); c.lineTo(x,y+r); c.lineTo(x-r,y); c.closePath(); break; } c.fill(); c.stroke(); },
+    drawLbl(c, t, x, y, bg, br, ctr, fs) {
+      const col = br ? '#e11b1b' : '#111'; c.font = fs + 'px system-ui';
+      const ls = String(t==null?'':t).split('\n').filter(l => l); if (!ls.length) return;
+      const ws = ls.map(l => c.measureText(l).width), w = Math.max(...ws) + 6, lh = fs+1, h = ls.length*lh + 2;
+      let lx = ctr ? x-w/2 : x, ly = y-h+1;
+      if (lx < 2) lx = 2; if (lx + w > c.canvas.width - 2) lx = c.canvas.width - w - 2; if (ly < 2) ly = 2;
+      if (bg) { c.fillStyle = 'rgba(255,245,180,0.9)'; c.fillRect(lx, ly, w, h); }
+      c.fillStyle = col; ls.forEach((l, i) => { const tx = ctr ? x - c.measureText(l).width/2 : lx+3; c.fillText(l, Math.max(2, tx), ly + fs + i*lh); });
+    },
+    wrapT(s, m) { if (!s) return ''; const ws = String(s).split(/\s+/), o = []; let c = ''; for (const w of ws) { if ((c+' '+w).trim().length > m) { o.push(c); c = w; } else c = (c+' '+w).trim(); } if (c) o.push(c); return o.join('\n'); }
+  };
+
+  const JournalModule = {
+    render() {
+      const tb = document.getElementById('journalBody'); tb.innerHTML = '';
+      let acc = state.points.length >= 2 ? state.spliceReserve : 0;
+      state.segments.forEach((s, i) => {
+        const a = pointById(s.a), b = pointById(s.b); if (!a || !b) return;
+        const d = Utils.haversine(a.lat, a.lng, b.lat, b.lng), dR = d * (1 + state.reserve/100), st = acc; acc += dR;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${i+1}</td><td>${Utils.escapeHtml(displayName(a))}</td><td>${a.lat.toFixed(6)},${a.lng.toFixed(6)}</td><td>${st.toFixed(1)}</td><td>${Utils.escapeHtml(displayName(b))}</td><td>${b.lat.toFixed(6)},${b.lng.toFixed(6)}</td><td>${acc.toFixed(1)}</td><td>${s.capacity}</td><td>${d.toFixed(1)}</td>`;
+        tb.appendChild(tr);
+      });
+    },
+    exportCSV() {
+      const rows = [['№','Нач.','Геометка нач.','ВОК нач.,м','Кон.','Геометка кон.','ВОК кон.,м','Емк.','Длина,м','Дата']];
+      let acc = state.points.length >= 2 ? state.spliceReserve : 0; const now = new Date().toLocaleString('ru-RU');
+      state.segments.forEach((s, i) => {
+        const a = pointById(s.a), b = pointById(s.b); if (!a || !b) return;
+        const d = Utils.haversine(a.lat, a.lng, b.lat, b.lng), dR = d * (1 + state.reserve/100), st = acc; acc += dR;
+        rows.push([i+1, displayName(a), `${a.lat.toFixed(6)},${a.lng.toFixed(6)}`, st.toFixed(1), displayName(b), `${b.lat.toFixed(6)},${b.lng.toFixed(6)}`, acc.toFixed(1), s.capacity, d.toFixed(1), now]);
+      });
+      const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(';')).join('\r\n');
+      const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'vedomost.csv'; a.click(); URL.revokeObjectURL(a.href);
+      UI.toast('Ведомость выгружена', 'success');
+    }
+  };
+
+  const CalcModule = {
+    totalPhys() { let t = 0; state.segments.forEach(s => { const a = pointById(s.a), b = pointById(s.b); if (a && b) t += Utils.haversine(a.lat, a.lng, b.lat, b.lng); }); return t; },
+    totalCable() { return this.totalPhys() * (1 + state.reserve/100) + (state.points.length >= 2 ? state.spliceReserve*2 : 0); },
+    summaryText() { const p = this.totalPhys(), t = this.totalCable(), a = state.segments.length ? p/state.segments.length : 0; return `Физ:${p.toFixed(1)}м | Всего(запас${state.reserve}%+разв.${state.spliceReserve}м×2):${t.toFixed(1)}м | Точек:${state.points.length} | Ср:${a.toFixed(1)}м`; },
+    renderSummary() { document.getElementById('summary').textContent = this.summaryText(); },
+    renderCalc() {
+      const el = document.getElementById('calc'), pts = state.points, segs = state.segments;
+      if (!pts.length) { el.innerHTML = 'Нет точек.'; return; }
+      const t = this.totalCable(), flat = segs.some(s => s.capacity === 1 || s.capacity === 4 || s.capacity === 8);
+      let ukn = 0, odw = 0;
+      if (flat && pts.length >= 2) { ukn += 2; odw += 2; const m = Math.max(0, pts.length - 2); ukn += m*2; odw += m*2; } else if (flat && pts.length === 1) { ukn++; odw++; }
+      el.innerHTML = `<b>ВОК:</b> ${t.toFixed(1)}м<div><b>Плоский 1/4/8:</b> ${flat?'да':'нет'}</div><div>УКН: <b>${ukn}</b></div><div>ODWAC: <b>${odw}</b></div><div>Бирка: <b>${pts.length}</b></div><div>Лента: <b>${(pts.length*1.5).toFixed(1)}м</b></div><div>Скрепа: <b>${pts.length}</b></div>`;
+    },
+    renderCableStats() {
+      const el = document.getElementById('cableStats');
+      if (!state.segments.length) { el.innerHTML = '<div style="color:var(--muted);font-style:italic">Нет данных</div>'; return; }
+      const byCap = {}; let maxLen = 0;
+      state.segments.forEach(s => { const a = pointById(s.a), b = pointById(s.b); if (!a || !b) return; const d = Utils.haversine(a.lat, a.lng, b.lat, b.lng) * (1 + state.reserve/100); byCap[s.capacity] = (byCap[s.capacity] || 0) + d; if (d > maxLen) maxLen = d; });
+      const total = Object.values(byCap).reduce((a,b) => a+b, 0);
+      const rows = CAPACITIES.filter(c => byCap[c]).map(c => {
+        const len = byCap[c], pct = total ? (len/total*100) : 0, color = CAP_COLORS[c] || '#888';
+        return `<div class="row"><span style="min-width:70px;color:${state.filters.blackred?'var(--text)':color};font-weight:600">${CAP_NAMES[c]||('ВОК-'+c)}</span><div class="bar"><div class="bar-fill" style="width:${pct}%;background:${state.filters.blackred?'#4ea1ff':color}"></div></div><span style="min-width:60px;text-align:right">${len.toFixed(0)}м <span style="color:var(--muted)">(${pct.toFixed(0)}%)</span></span></div>`;
+      }).join('');
+      el.innerHTML = rows + `<div class="row total"><span>ИТОГО</span><span>${total.toFixed(1)}м</span></div>`;
+    }
+  };
+
+  const ExportModule = {
+    async exportPNG() {
+      UI.show('Сборка...', 'Рендер...', [{label:'Ок', primary:true}]);
+      try {
+        const mc = await this.renderMapCanvas(), sc = this.renderSumCanvas(), sch = document.getElementById('schema');
+        const totalH = mc.height + sc.height + sch.height + 20, out = document.createElement('canvas');
+        out.width = Math.max(mc.width, sch.width); out.height = totalH;
+        const ctx = out.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, out.width, out.height);
+        ctx.drawImage(mc, 0, 0); ctx.drawImage(sc, 0, mc.height); ctx.drawImage(sch, 0, mc.height + sc.height + 8);
+        out.toBlob(bl => { const a = document.createElement('a'); a.href = URL.createObjectURL(bl); a.download = 'exec_docs_' + Date.now() + '.png'; a.click(); URL.revokeObjectURL(a.href); UI.hide(); UI.toast('Документация экспортирована', 'success'); }, 'image/png');
+      } catch(err) { UI.hide(); UI.toast('Ошибка: ' + err.message, 'error', 5000); }
+    },
+    async renderMapCanvas() {
+      const el = document.getElementById('map'), w = el.clientWidth, h = el.clientHeight;
+      const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); const mr = el.getBoundingClientRect();
+      for (const t of document.querySelectorAll('.leaflet-tile')) { try { const img = await this.img2c(t.src), r = t.getBoundingClientRect(); ctx.drawImage(img, r.left-mr.left, r.top-mr.top, r.width, r.height); } catch(e) {} }
+      state.segments.forEach(s => {
+        const a = pointById(s.a), b = pointById(s.b); if (!a || !b) return;
+        const p1 = MapModule.map.latLngToContainerPoint([a.lat, a.lng]), p2 = MapModule.map.latLngToContainerPoint([b.lat, b.lng]);
+        ctx.strokeStyle = state.filters.blackred ? '#000' : (s.color || CAP_COLORS[s.capacity] || '#1e88e5'); ctx.lineWidth = 2; ctx.setLineDash(LINE_STYLES[s.style] || []);
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke(); ctx.setLineDash([]);
+        const mx = (p1.x+p2.x)/2, my = (p1.y+p2.y)/2; ctx.font = 'bold 11px system-ui'; ctx.fillStyle = state.filters.blackred ? '#e11b1b' : '#111';
+        if (MapModule.isVisibleOnMap('capacity')) ctx.fillText(s.capacity+'в', mx+4, my-4);
+        if (MapModule.isVisibleOnMap('lengths')) { const d = Utils.haversine(a.lat, a.lng, b.lat, b.lng); ctx.fillText(d.toFixed(1)+'м', mx+4, my+10); }
+      });
+      state.points.forEach(p => {
+        const pt = MapModule.map.latLngToContainerPoint([p.lat, p.lng]), col = state.filters.blackred ? '#000' : (p.color || COLORS[1]);
+        this.drawShp(ctx, p.shape, pt.x, pt.y, col, 7);
+        ctx.font = 'bold 11px system-ui'; ctx.fillStyle = state.filters.blackred ? '#e11b1b' : '#111';
+        if (MapModule.isVisibleOnMap('names')) ctx.fillText(displayName(p), pt.x+10, pt.y-4);
+        if (MapModule.isVisibleOnMap('notes') && p.note) ctx.fillText(p.note, pt.x+10, pt.y+8);
+        if (MapModule.isVisibleOnMap('coords')) ctx.fillText(p.lat.toFixed(5)+','+p.lng.toFixed(5), pt.x+10, pt.y+20);
+      });
+      return c;
+    },
+    drawShp(c, s, x, y, col, r) { c.fillStyle = col; c.strokeStyle = '#000'; c.lineWidth = 1.5; c.beginPath(); switch(s) { case 'dot': c.arc(x,y,r,0,Math.PI*2); break; case 'triangle': c.moveTo(x,y-r); c.lineTo(x+r,y+r); c.lineTo(x-r,y+r); c.closePath(); break; case 'circle': c.arc(x,y,r,0,Math.PI*2); break; case 'square': c.rect(x-r,y-r,r*2,r*2); break; case 'diamond': c.moveTo(x,y-r); c.lineTo(x+r,y); c.lineTo(x,y+r); c.lineTo(x-r,y); c.closePath(); break; } c.fill(); c.stroke(); },
+    img2c(src) { return new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => { try { const c = document.createElement('canvas'); c.width = i.naturalWidth; c.height = i.naturalHeight; c.getContext('2d').drawImage(i, 0, 0); res(c); } catch(e) { rej(e); } }; i.onerror = () => rej(new Error('img')); i.src = src; }); },
+    renderSumCanvas() { const c = document.createElement('canvas'); c.width = 1122; c.height = 36; const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.fillStyle = state.filters.blackred ? '#e11b1b' : '#111'; ctx.font = 'bold 12px system-ui'; ctx.fillText(CalcModule.summaryText(), 14, 24); return c; }
+  };
+
+  const PanelsModule = {
+    update() {
+      const sp = document.getElementById('schemaPanel'), jp = document.getElementById('journalPanel');
+      const sv = state.panels.schema.visible, jv = state.panels.journal.visible;
+      sp.classList.toggle('hidden', !sv); jp.classList.toggle('hidden', !jv);
+      document.getElementById('toggleSchema').classList.toggle('active', sv); document.getElementById('toggleJournal').classList.toggle('active', jv);
+      if (sv && jv) { sp.style.bottom = `calc(${state.panels.journal.height} + 4px)`; jp.style.bottom = '42px'; } 
+      else if (sv) sp.style.bottom = '42px'; else if (jv) jp.style.bottom = '42px';
+      sp.style.height = state.panels.schema.height; jp.style.height = state.panels.journal.height;
+      sp.classList.toggle('collapsed', state.panels.schema.collapsed); jp.classList.toggle('collapsed', state.panels.journal.collapsed);
+    },
+    setupResize(handle) {
+      const panelKey = handle.dataset.panel === 'schemaPanel' ? 'schema' : 'journal';
+      let startY = 0, startH = 0;
+      const onStart = (clientY) => { startY = clientY; startH = document.getElementById(handle.dataset.panel).getBoundingClientRect().height; };
+      const onMove = (clientY) => { const delta = startY - clientY; const newH = Math.max(80, Math.min(window.innerHeight*0.7, startH + delta)); state.panels[panelKey].height = newH + 'px'; this.update(); };
+      const onEnd = () => { document.removeEventListener('mousemove', onMM); document.removeEventListener('mouseup', onUp); document.removeEventListener('touchmove', onTM); document.removeEventListener('touchend', onUp); MapModule.invalidateSize(); };
+      const onMM = e => onMove(e.clientY), onTM = e => { e.preventDefault(); onMove(e.touches[0].clientY); }, onUp = onEnd;
+      handle.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); onStart(e.clientY); document.addEventListener('mousemove', onMM); document.addEventListener('mouseup', onUp); });
+      handle.addEventListener('touchstart', e => { e.stopPropagation(); onStart(e.touches[0].clientY); document.addEventListener('touchmove', onTM, {passive:false}); document.addEventListener('touchend', onUp); }, {passive:true});
+    },
+    toggle(key) { state.panels[key].visible = !state.panels[key].visible; this.update(); if (state.panels[key].visible) setTimeout(() => { MapModule.invalidateSize(); SchemaModule.render(); }, 50); else setTimeout(() => MapModule.invalidateSize(), 50); },
+    collapse(key) { state.panels[key].collapsed = !state.panels[key].collapsed; this.update(); setTimeout(() => MapModule.invalidateSize(), 50); }
+  };
+
+  function renderPointList() {
+    const pl = document.getElementById('pointList'); pl.innerHTML = '';
+    const q = (state.pointSearchQuery || '').toLowerCase().trim();
+    const filtered = q ? state.points.filter(p => { const name = displayName(p).toLowerCase(), note = (p.note || '').toLowerCase(), coords = `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`; return name.includes(q) || note.includes(q) || coords.includes(q); }) : state.points;
+    if (state.points.length === 0) { pl.innerHTML = '<li class="empty">Нет точек. Загрузите фото или добавьте кликом.</li>'; return; }
+    if (filtered.length === 0) { pl.innerHTML = `<li class="empty">Ничего не найдено по «${Utils.escapeHtml(q)}»</li>`; return; }
+    filtered.forEach(p => {
+      const i = state.points.indexOf(p); const li = document.createElement('li'); li.draggable = true; li.dataset.id = p.id; li.dataset.idx = i;
+      if (p.id === state.selectedPointId) li.classList.add('selected');
+      let tag = ''; if (state.points.length > 1) { if (i === 0) tag = ' · А'; else if (i === state.points.length-1) tag = ' · Я'; }
+      li.innerHTML = `<span style="color:#9aa3c7;width:18px">${i+1}</span><span class="name" title="${Utils.escapeHtml(displayName(p))}${p.note?' · '+Utils.escapeHtml(p.note):''}">${Utils.escapeHtml(displayName(p))}${tag}</span><button class="goto">📍</button>`;
+      li.querySelector('.goto').onclick = e => { e.stopPropagation(); MapModule.map.setView([p.lat, p.lng], 18); MapModule.openPointPopup(p); state.selectedPointId = p.id; bus.emit('points:selection-changed'); };
+      li.addEventListener('click', () => { state.selectedPointId = p.id; bus.emit('points:selection-changed'); });
+      li.addEventListener('dragstart', e => { li.classList.add('dragging'); e.dataTransfer.setData('text/plain', String(i)); e.dataTransfer.effectAllowed = 'move'; });
+      li.addEventListener('dragend', () => li.classList.remove('dragging'));
+      li.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; li.classList.add('drag-over'); });
+      li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
+      li.addEventListener('drop', e => {
+        e.preventDefault(); li.classList.remove('drag-over');
+        const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10), toIdx = i;
+        if (fromIdx === toIdx || isNaN(fromIdx)) return;
+        const cmd = new ReorderCmd(fromIdx, toIdx); cmd.execute(); History.push(cmd);
+        if (state.sortMode === 'index') SegmentsModule.rebuild();
+        bus.emit('state:full-refresh'); Storage.saveProject(serializeProject());
+      });
+      pl.appendChild(li);
+    });
+  }
+
+  function bindUI() {
+    // Accordion logic
+    document.querySelectorAll('.accordion-header').forEach(header => {
+      header.addEventListener('click', () => {
+        const content = document.getElementById(header.dataset.accordion);
+        const isCollapsed = header.classList.contains('collapsed');
+        if (isCollapsed) { header.classList.remove('collapsed'); content.classList.remove('collapsed'); } 
+        else { header.classList.add('collapsed'); content.classList.add('collapsed'); }
+      });
+    });
+
+    document.querySelectorAll('#basemapSwitcher button').forEach(b => { 
+      b.onclick = () => { MapModule.setBasemap(b.dataset.basemap); Storage.saveProject(serializeProject()); }; 
+    });
+
+    document.getElementById('geosearch').addEventListener('keydown', e => { if (e.key !== 'Enter') return; const v = e.target.value.trim(); if (!MapModule.searchCoords(v) && v.length) { MapModule.geocoder._input.value = v; try { MapModule.geocoder._geocode(); } catch(err) {} } });
+    
+    // ===== ИСПРАВЛЕННЫЙ БЛОК ЗАГРУЗКИ ФОТО =====
+    const dz = document.getElementById('dz');
+    const fileInput = document.getElementById('fileInput');
+    const pickBtn = document.getElementById('pickBtn');
+
+    // Клик по кнопке — отдельный обработчик
+    pickBtn.onclick = (e) => { 
+      e.stopPropagation(); // Предотвращаем всплытие до dropzone
+      fileInput.click(); 
+    };
+
+    // Клик по dropzone — но НЕ по кнопке и не по input
+    dz.addEventListener('click', (e) => {
+      // Игнорируем клики по кнопке и скрытому input
+      if (e.target.closest('button') || e.target.closest('input[type="file"]')) return;
+      fileInput.click();
+    });
+
+    // Drag-and-drop с stopPropagation
+    ['dragenter','dragover'].forEach(ev => {
+      dz.addEventListener(ev, e => { 
+        e.preventDefault(); 
+        e.stopPropagation();
+        dz.classList.add('hover'); 
+      });
+    });
+    ['dragleave','drop'].forEach(ev => {
+      dz.addEventListener(ev, e => { 
+        e.preventDefault(); 
+        e.stopPropagation();
+        dz.classList.remove('hover'); 
+      });
+    });
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer.files.length) {
+        PhotoModule.handleFiles(e.dataTransfer.files);
+      }
+    });
+    fileInput.addEventListener('change', e => { 
+      if (e.target.files.length) {
+        PhotoModule.handleFiles(e.target.files); 
+      }
+      e.target.value = ''; // Сброс для повторной загрузки того же файла
+    });
+    // ===== КОНЕЦ ИСПРАВЛЕННОГО БЛОКА =====
+
+    document.getElementById('importKmlBtn').onclick = () => document.getElementById('kmlInput').click();
+    document.getElementById('kmlInput').onchange = e => { const f = e.target.files[0]; if (f) KMLModule.import(f); e.target.value = ''; };
+    document.getElementById('addClickBtn').onclick = () => { state.clickMode = 'addPoint'; UI.toast('Режим добавления: кликните по карте', 'info'); };
+    document.getElementById('clearAllBtn').onclick = async () => { const ok = await UI.confirm('Очистить всё?', 'Все точки и пролёты будут удалены.'); if (!ok) return; state.points.forEach(p => MapModule.removeMarker(p)); state.segments.forEach(s => { try { if (s.poly) MapModule.map.removeLayer(s.poly); } catch(e){} if (s.labels) s.labels.forEach(l => { try { MapModule.map.removeLayer(l); } catch(e){} }); }); state.points = []; state.segments = []; History.clear(); bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); UI.toast('Проект очищен', 'success'); };
+
+    document.querySelectorAll('#sortSeg button').forEach(b => { b.onclick = () => { document.querySelectorAll('#sortSeg button').forEach(x => x.classList.remove('active')); b.classList.add('active'); state.sortMode = b.dataset.sort; SegmentsModule.rebuild(); bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); }; });
+
+    const defaultCapSel = document.getElementById('defaultCap'), capPreview = document.getElementById('capPreview');
+    CAPACITIES.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = (CAP_NAMES[c]||c) + ' ('+c+'в)'; if (c === state.defaultCapacity) o.selected = true; defaultCapSel.appendChild(o); });
+    function updateCapPreview() { capPreview.style.background = CAP_COLORS[state.defaultCapacity] || '#888'; }
+    updateCapPreview();
+    defaultCapSel.addEventListener('change', e => { state.defaultCapacity = parseInt(e.target.value, 10); updateCapPreview(); });
+    document.getElementById('applyCapAllBtn').onclick = async () => { if (!state.segments.length) { UI.toast('Нет пролётов', 'info'); return; } const ok = await UI.confirm('Применить ко всем?', `Ёмкость ${state.defaultCapacity}в на все пролёты?`); if (!ok) return; const cmd = new ApplyCapAllCmd(state.defaultCapacity); cmd.execute(); History.push(cmd); bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); UI.toast('Применено', 'success'); };
+
+    document.querySelectorAll('aside input[data-f]').forEach(cb => { cb.addEventListener('change', () => { state.filters[cb.dataset.f] = cb.checked; state.points.forEach(p => { if (p.marker) p.marker.setIcon(MapModule.markerIcon(p)); }); bus.emit('state:full-refresh'); }); });
+    document.querySelectorAll('.filter-toggle[data-ft]').forEach(btn => { btn.addEventListener('click', () => { const k = btn.dataset.ft; state.filters.schemaOnly[k] = !state.filters.schemaOnly[k]; btn.classList.toggle('active', state.filters.schemaOnly[k]); bus.emit('state:full-refresh'); }); });
+
+    const debouncedRefresh = Utils.debounce(() => { bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); }, 300);
+    document.getElementById('reserve').addEventListener('input', e => { const v = parseInt(e.target.value || '0', 10); state.reserve = isNaN(v) ? 0 : Math.max(0, Math.min(50, v)); debouncedRefresh(); });
+    document.getElementById('spliceReserve').addEventListener('input', e => { const v = parseInt(e.target.value || '0', 10); state.spliceReserve = isNaN(v) ? 0 : Math.max(0, Math.min(100, v)); debouncedRefresh(); });
+    document.getElementById('globalNotes').addEventListener('input', e => { state.globalNotes = e.target.value; SchemaModule.render(); });
+    document.getElementById('pointSearch').addEventListener('input', Utils.debounce(e => { state.pointSearchQuery = e.target.value; renderPointList(); }, 150));
+
+    document.getElementById('toggleSchema').onclick = () => PanelsModule.toggle('schema');
+    document.getElementById('toggleJournal').onclick = () => PanelsModule.toggle('journal');
+    document.querySelectorAll('.panel-header[data-toggle]').forEach(h => { h.addEventListener('click', () => { const key = h.dataset.toggle === 'schemaPanel' ? 'schema' : 'journal'; PanelsModule.collapse(key); }); });
+    document.querySelectorAll('.resize-handle').forEach(h => PanelsModule.setupResize(h));
+
+    document.getElementById('saveProjBtn').onclick = () => { const data = serializeProject(); const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'vols_project_' + Date.now() + '.json'; a.click(); URL.revokeObjectURL(a.href); UI.toast('Проект сохранён', 'success'); };
+    document.getElementById('loadProjBtn').onclick = () => document.getElementById('projInput').click();
+    document.getElementById('projInput').onchange = async e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = async () => { try { let d = JSON.parse(r.result); Validator.validate(d); d = Validator.migrate(d); await loadProjectData(d); UI.toast('Проект загружен', 'success'); } catch(err) { UI.toast('Ошибка: ' + err.message, 'error', 5000); } }; r.readAsText(f); e.target.value = ''; };
+    document.getElementById('restoreAutoBtn').onclick = async () => { try { const d = await Storage.loadProject(); if (!d || !d.points || !d.points.length) { UI.toast('Автосохранение пусто', 'info'); return; } const ok = await UI.confirm('Восстановить автосейв?', `Найдено ${d.points.length} точек.`); if (!ok) return; await loadProjectData(Validator.migrate(d)); UI.toast('Автосейв восстановлен', 'success'); } catch(err) { UI.toast('Не удалось: ' + err.message, 'error'); } };
+
+    document.getElementById('exportDocBtn').onclick = () => ExportModule.exportPNG();
+    document.getElementById('exportKmlBtn').onclick = () => KMLModule.export();
+    document.getElementById('shotBtn').onclick = async () => { try { const cv = await html2canvas(document.body, {useCORS:true, allowTaint:true, backgroundColor:'#0e1220', scale:window.devicePixelRatio||1, logging:false}); cv.toBlob(bl => { const a = document.createElement('a'); a.href = URL.createObjectURL(bl); a.download = 'screenshot_' + Date.now() + '.png'; a.click(); URL.revokeObjectURL(a.href); UI.toast('Скриншот сохранён', 'success'); }, 'image/png'); } catch(err) { UI.toast('Скриншот не удался', 'error'); } };
+    document.getElementById('csvBtn').onclick = () => JournalModule.exportCSV();
+
+    document.getElementById('undoBtn').onclick = () => History.undo();
+    document.getElementById('redoBtn').onclick = () => History.redo();
+    document.getElementById('modalOk').onclick = () => UI.hide();
+
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+      if (e.ctrlKey && e.key === 'z') { e.preventDefault(); History.undo(); }
+      else if (e.ctrlKey && e.key === 'y') { e.preventDefault(); History.redo(); }
+      else if (e.key === 'Delete' && state.selectedPointId) { const cmd = new RemovePointCmd(state.selectedPointId); cmd.execute(); History.push(cmd); state.selectedPointId = null; bus.emit('state:full-refresh'); Storage.saveProject(serializeProject()); }
+      else if (e.key === 'Escape') { UI.hide(); if (MapModule.map) MapModule.map.closePopup(); }
+    });
+
+    bus.on('state:full-refresh', fullRefresh);
+    bus.on('history:change', () => { document.getElementById('undoBtn').disabled = History.stack.length === 0; document.getElementById('redoBtn').disabled = History.future.length === 0; });
+    bus.on('points:selection-changed', renderPointList);
+
+    setInterval(() => Storage.saveProject(serializeProject()), 10000);
+    window.addEventListener('beforeunload', () => Storage.saveProject(serializeProject()));
+    window.addEventListener('resize', Utils.debounce(() => { MapModule.invalidateSize(); SchemaModule.render(); }, 150));
+  }
+
+  async function loadProjectData(d) {
+    state.points.forEach(p => MapModule.removeMarker(p));
+    state.segments.forEach(s => { try { if (s.poly) MapModule.map.removeLayer(s.poly); } catch(e){} if (s.labels) s.labels.forEach(l => { try { MapModule.map.removeLayer(l); } catch(e){} }); });
+    state.points = []; state.segments = [];
+    Object.assign(state.filters, d.filters); state.sortMode = d.sortMode || 'index'; state.reserve = d.reserve ?? 25; state.spliceReserve = d.spliceReserve ?? 15;
+    state.globalNotes = d.globalNotes || ''; state.defaultCapacity = d.defaultCapacity ?? 4; state.counter = d.counter || 0; state.basemap = d.basemap || 'osm';
+    if (d.panels) Object.assign(state.panels, d.panels);
+    document.querySelectorAll('aside input[data-f]').forEach(cb => cb.checked = !!state.filters[cb.dataset.f]);
+    document.querySelectorAll('.filter-toggle[data-ft]').forEach(b => b.classList.toggle('active', !!state.filters.schemaOnly[b.dataset.ft]));
+    document.querySelectorAll('#sortSeg button').forEach(b => b.classList.toggle('active', b.dataset.sort === state.sortMode));
+    document.getElementById('reserve').value = state.reserve; document.getElementById('spliceReserve').value = state.spliceReserve;
+    document.getElementById('globalNotes').value = state.globalNotes; document.getElementById('defaultCap').value = String(state.defaultCapacity);
+    document.getElementById('capPreview').style.background = CAP_COLORS[state.defaultCapacity] || '#888';
+    MapModule.setBasemap(state.basemap); PanelsModule.update();
+    d.points.forEach(pd => { const p = Object.assign({}, pd); state.points.push(p); MapModule.createMarker(p); });
+    state.segments = d.segments.map(s => ({a:s.a, b:s.b, capacity:s.capacity, color:s.color, style:s.style, poly:null, labels:[]}));
+    MapModule.redrawSegments(); History.clear(); fullRefresh(); Storage.saveProject(serializeProject());
+  }
+
+  function fullRefresh() { renderPointList(); state.points.forEach(p => { if (p.marker) MapModule.updateLabels(p); }); MapModule.redrawSegments(); CalcModule.renderSummary(); CalcModule.renderCalc(); CalcModule.renderCableStats(); JournalModule.render(); SchemaModule.render(); }
+
+  async function boot() {
+    MapModule.init(); bindUI(); PanelsModule.update(); fullRefresh();
+    try {
+      const auto = await Storage.loadProject();
+      if (auto && auto.points && auto.points.length) {
+        setTimeout(async () => { const ok = await UI.confirm('Восстановить автосохранение?', `Найден проект (${auto.points.length} точек). Восстановить?`); if (ok) { await loadProjectData(Validator.migrate(auto)); UI.toast('Проект восстановлен', 'success'); } }, 500);
+      }
+    } catch(e) { console.warn('Autosave restore failed', e); }
+    setTimeout(() => MapModule.invalidateSize(), 100);
+  }
+
+  boot();
+})();
+</script>
 </body>
 </html>
